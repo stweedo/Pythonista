@@ -135,7 +135,9 @@ class NotesApp(ui.View):
             relevant_comments = self.get_relevant_comments(sorted_comments, delta)
             self.notes_list.data_source = self
             self.notes_list.data_source.comments = relevant_comments
-            
+        elif hasattr(self.notes_list.data_source, 'comments'):
+            delattr(self.notes_list.data_source, 'comments')
+        
         self.notes_list.reload()
     
     def load_notes(self):
@@ -292,3 +294,4 @@ class NotesApp(ui.View):
 if __name__ == '__main__':
     app = NotesApp()
     app.present('full_screen')
+    
