@@ -46,7 +46,10 @@ def show_alert(message):
 
 
 def import_clipboard(sender):
-    text = clipboard.get()
+    text = clipboard.get().strip()  # remove any leading or trailing whitespace
+    if not text:  # Check if the clipboard text is empty or just whitespace
+        show_alert('Clipboard is empty or contains only whitespace')
+        return
     if len(clipboard_buffer.buffer) >= clipboard_buffer.MAX_SIZE:
         show_alert('Clipboard buffer is full')
         return
