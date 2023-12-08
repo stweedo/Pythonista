@@ -237,29 +237,32 @@ class NotesApp(ui.View):
     def tableview_cell_for_row(self, tableview, section, row):
         cell = ui.TableViewCell('subtitle')
         if hasattr(tableview.data_source, 'comments'):
-            if row < len(tableview.data_source.comments):
-                timestamp, comment = tableview.data_source.comments[row].split(": ", 1)
-                cell.text_label.text = timestamp
-                cell.detail_text_label.text = self.truncate_text(comment, 60)
-            else:
-                return cell
+            comment_data = tableview.data_source.comments[row]
+            timestamp, comment = self.extract_comment_data(comment_data)
+            cell.text_label.text = timestamp
+            cell.detail_text_label.text = self.truncate_text(comment, 60)
         else:
             identifier = sorted(self.displayed_notes.keys())[row]
+            comment_count, most_recent_date = self.extract_identifier_data(identifier)
             cell.text_label.text = identifier
-        
-            now = datetime.now()
-            delta = self.get_timeframe_delta()
-            
-            sorted_comments = self.get_sorted_comments(identifier)
-            relevant_comments = self.get_relevant_comments(sorted_comments, delta)
-        
-            comments_count = len(relevant_comments)
-            most_recent_date_time = relevant_comments[0].split(": ", 1)[0] if relevant_comments else "No date"
-            most_recent_date = most_recent_date_time.split(" ")[0]
-        
-            cell.detail_text_label.text = f"{comments_count} comment{'s' if comments_count != 1 else ''}  |  {most_recent_date}"
-        
+            cell.detail_text_label.text = f"{comment_count} comment{'s' if comment_count != 1 else ''} | {most_recent_date}"
+
         return cell
+
+    def extract_comment_data(self, comment_data):
+        timestamp, comment = comment_data.split(": ", 1)
+        return timestamp, comment
+
+    def extract_identifier_data(self, identifier):
+        now = datetime.now()
+        delta = self.get_timeframe_delta()
+
+        sorted_comments = self.get_sorted_comments(identifier)
+        relevant_comments = self.get_relevant_comments(sorted_comments, delta)
+
+        comment_count = len(relevant_comments)
+        most_recent_date = relevant_comments[0].split(": ", 1)[0].split(" ")[0] if relevant_comments else "No date"
+        return comment_count, most_recent_date
     
     def tableview_title_for_header(self, tableview, section):
         if hasattr(tableview.data_source, 'comments'):
