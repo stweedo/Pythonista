@@ -21,6 +21,8 @@ class NotesApp(ui.View):
         self.add_clear_button()
         self.add_timeframe_control()
         self.add_notes_list()
+        self.id_input.action = self.filter_notes
+        self.timeframe_control.action = self.filter_notes
 
     def setup_ui_properties(self):
         self.name = 'Advanced Note Taking System'
@@ -30,7 +32,6 @@ class NotesApp(ui.View):
         self.id_input = ui.TextField(frame=(10, 10, 370, 32), placeholder='Unique identifier (e.g., Asset number)', continuous=True)
         self.id_input.font = ('<system-bold>', 20)
         self.id_input.alignment = ui.ALIGN_CENTER
-        self.id_input.action = self.filter_notes_list
         self.add_subview(self.id_input)
 
     def add_comment_label(self):
@@ -52,7 +53,6 @@ class NotesApp(ui.View):
 
     def add_timeframe_control(self):
         self.timeframe_control = ui.SegmentedControl(frame=(10, 280, 370, 32), segments=['All', 'Day', 'Week', 'Month'])
-        self.timeframe_control.action = self.filter_by_timeframe
         self.timeframe_control.selected_index = 0
         self.add_subview(self.timeframe_control)
 
@@ -95,51 +95,27 @@ class NotesApp(ui.View):
             reverse=True
         )
 
-    def filter_by_timeframe(self, sender):
-        now = datetime.now()
+    def filter_notes(self, sender):
+        """Filters notes based on the current identifier and timeframe."""
+        current_identifier = self.id_input.text.lower()
         delta = self.get_timeframe_delta()
-        current_identifier_filter = self.id_input.text
-        self.displayed_notes = {}
+        self.displayed_notes = {
+            key: self.get_relevant_comments(value, delta)
+            for key, value in self.original_notes.items()
+            if not current_identifier or key.lower().startswith(current_identifier)
+        }
+        # Remove entries with no relevant comments
+        self.displayed_notes = {k: v for k, v in self.displayed_notes.items() if v}
+        self.refresh_notes_list()
 
-        for key, value in self.original_notes.items():
-            sorted_comments = self.get_sorted_comments(key)
-            relevant_comments = self.get_relevant_comments(sorted_comments, delta)
-            if relevant_comments:
-                self.displayed_notes[key] = relevant_comments
-
-        if current_identifier_filter in self.original_notes:
-            sorted_comments = self.get_sorted_comments(current_identifier_filter)
-            relevant_comments = self.get_relevant_comments(sorted_comments, delta)
-            self.notes_list.data_source = self
-            self.notes_list.data_source.comments = relevant_comments
-        elif current_identifier_filter:
-            self.displayed_notes = {key: value for key, value in self.displayed_notes.items() if key.lower().startswith(current_identifier_filter.lower())}
-            
-        self.notes_list.reload()
-
-    def filter_notes_list(self, sender):
-        search_text = self.id_input.text.lower()
-        filtered_by_text = {key: value for key, value in self.original_notes.items() if key.lower().startswith(search_text)}
-        now = datetime.now()
-        delta = self.get_timeframe_delta()
-        self.displayed_notes = {}
-
-        for key, value in filtered_by_text.items():
-            sorted_comments = self.get_sorted_comments(key)
-            relevant_comments = self.get_relevant_comments(sorted_comments, delta)
-            if relevant_comments:
-                self.displayed_notes[key] = relevant_comments
-
-        if search_text in filtered_by_text:
-            sorted_comments = self.get_sorted_comments(search_text)
-            relevant_comments = self.get_relevant_comments(sorted_comments, delta)
-            self.notes_list.data_source = self
-            self.notes_list.data_source.comments = relevant_comments
+    def refresh_notes_list(self):
+        """Refreshes the notes list view with currently displayed notes."""
+        if self.displayed_notes and self.id_input.text in self.displayed_notes:
+            self.notes_list.data_source.comments = self.displayed_notes[self.id_input.text]
         elif hasattr(self.notes_list.data_source, 'comments'):
             delattr(self.notes_list.data_source, 'comments')
-        
         self.notes_list.reload()
-    
+
     def load_notes(self):
         if os.path.exists(FILENAME):
             with open(FILENAME, 'r') as f:
@@ -165,7 +141,7 @@ class NotesApp(ui.View):
             self.displayed_notes = dict(self.original_notes)
             if hasattr(self.notes_list.data_source, 'comments'):
                 delattr(self.notes_list.data_source, 'comments')
-            self.filter_by_timeframe(None)
+            self.filter_notes(None)
         ui.end_editing()
 
     def save_note(self, sender):
@@ -185,7 +161,7 @@ class NotesApp(ui.View):
         
         self.comment_input.text = ''
         self.refresh_comments_list(identifier)
-        self.filter_by_timeframe(None)
+        self.filter_notes(None)
         ui.end_editing()
     
     def refresh_comments_list(self, identifier):
@@ -245,13 +221,13 @@ class NotesApp(ui.View):
                                                               key=lambda x: datetime.strptime(x.split(": ", 1)[0], DATESTR), 
                                                               reverse=True)
             self.save_notes_to_file()
-            self.filter_by_timeframe(None)
+            self.filter_notes(None)
             tableview.reload()
         else:
             identifier = sorted(self.displayed_notes.keys())[row]
             self.delete_entry(identifier=identifier)
             self.original_notes = dict(self.notes)
-            self.filter_by_timeframe(None)
+            self.filter_notes(None)
             tableview.reload()
 
     @staticmethod
@@ -294,4 +270,3 @@ class NotesApp(ui.View):
 if __name__ == '__main__':
     app = NotesApp()
     app.present('full_screen')
-    
