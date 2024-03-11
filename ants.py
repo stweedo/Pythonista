@@ -118,8 +118,7 @@ class NotesApp(ui.View):
     def refresh_notes_list(self):
         """Refreshes the notes list view with currently displayed notes."""
         if self.displayed_notes and self.id_input.text in self.displayed_notes:
-            sorted_comments = self.get_sorted_comments(self.id_input.text)
-            self.notes_list.data_source.comments = sorted_comments
+            self.notes_list.data_source.comments = self.displayed_notes[self.id_input.text]
         elif hasattr(self.notes_list.data_source, 'comments'):
             delattr(self.notes_list.data_source, 'comments')
         self.notes_list.reload()
