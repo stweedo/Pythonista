@@ -100,10 +100,17 @@ class NotesApp(ui.View):
         current_identifier = self.id_input.text.lower()
         delta = self.get_timeframe_delta()
         self.displayed_notes = {
-            key: self.get_relevant_comments(value, delta)
+            key: self.get_sorted_comments(key)
             for key, value in self.original_notes.items()
             if not current_identifier or key.lower().startswith(current_identifier)
         }
+    
+        # Filter the comments within the timeframe
+        self.displayed_notes = {
+            key: self.get_relevant_comments(comments, delta)
+            for key, comments in self.displayed_notes.items()
+        }
+    
         # Remove entries with no relevant comments
         self.displayed_notes = {k: v for k, v in self.displayed_notes.items() if v}
         self.refresh_notes_list()
@@ -111,7 +118,8 @@ class NotesApp(ui.View):
     def refresh_notes_list(self):
         """Refreshes the notes list view with currently displayed notes."""
         if self.displayed_notes and self.id_input.text in self.displayed_notes:
-            self.notes_list.data_source.comments = self.displayed_notes[self.id_input.text]
+            sorted_comments = self.get_sorted_comments(self.id_input.text)
+            self.notes_list.data_source.comments = sorted_comments
         elif hasattr(self.notes_list.data_source, 'comments'):
             delattr(self.notes_list.data_source, 'comments')
         self.notes_list.reload()
