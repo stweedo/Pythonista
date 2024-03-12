@@ -33,11 +33,6 @@ class CustomAlert(ui.View):
         self.save_callback(False)
         self.close_alert()
 
-    def style_button(self, btn):
-        btn.background_color = 'blue'
-        btn.tint_color = 'white'
-        btn.corner_radius = 5
-
     def close_alert(self):
         self.superview.remove_subview(self)
 
@@ -178,7 +173,6 @@ class NotesApp(ui.View):
         if self.comment_input.text:
             self.comment_input.text = ''
             self.updating_comment_index = None
-            self.notes_list.selected_row = -1
         elif self.id_input.text:
             self.id_input.text = ''
             self.displayed_notes = dict(self.original_notes)
