@@ -10,7 +10,7 @@ class CustomAlert(ui.View):
     def __init__(self, save_callback, create_button_method):
         self.save_callback = save_callback
         self.create_button = create_button_method  # Reference to create_button method
-        self.background_color = 'lightgrey'
+        self.background_color = 'white'
         self.border_color = 'black'
         self.border_width = 1
         self.corner_radius = 5
