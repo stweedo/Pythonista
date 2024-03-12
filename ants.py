@@ -6,6 +6,42 @@ from datetime import datetime, timedelta
 FILENAME = 'ants.json'
 DATESTR = '%m-%d-%Y %H:%M:%S'
 
+class CustomAlert(ui.View):
+    def __init__(self, save_callback, create_button_method):
+        self.save_callback = save_callback
+        self.create_button = create_button_method  # Reference to create_button method
+        self.background_color = 'lightgrey'
+        self.border_color = 'black'
+        self.border_width = 1
+        self.corner_radius = 5
+        self.frame = (0, 0, 300, 120)
+        self.name = 'Update Timestamp?'
+
+        title_label = ui.Label(frame=(0, 0, 300, 40), text=self.name, alignment=ui.ALIGN_CENTER)
+        self.add_subview(title_label)
+
+        update_btn = self.create_button((30, 70, 100, 40), 'Update', 'red', self.update_action)
+        self.add_subview(update_btn)
+
+        keep_btn = self.create_button((170, 70, 100, 40), 'Keep', 'blue', self.keep_action)
+        self.add_subview(keep_btn)
+
+    def update_action(self, sender):
+        self.save_callback(True)
+        self.close_alert()
+
+    def keep_action(self, sender):
+        self.save_callback(False)
+        self.close_alert()
+
+    def style_button(self, btn):
+        btn.background_color = 'blue'
+        btn.tint_color = 'white'
+        btn.corner_radius = 5
+
+    def close_alert(self):
+        self.superview.remove_subview(self)
+
 class NotesApp(ui.View):
     def __init__(self):
         self.load_notes()
@@ -154,18 +190,37 @@ class NotesApp(ui.View):
     def save_note(self, sender):
         identifier = self.id_input.text.strip()
         comment = self.comment_input.text.strip()
-        
+
         if not (identifier and comment):
             return
-        
-        comment_with_timestamp = f"{datetime.now().strftime(DATESTR)}: {comment}"
-        
+
+        # Minimize the keyboard before showing the alert
+        ui.end_editing()
+
         if self.updating_comment_index is not None:
+            self.show_custom_alert()
+        else:
+            self.perform_save(identifier, comment, True)
+
+    def show_custom_alert(self):
+        def save_callback(update_timestamp):
+            self.perform_save(self.id_input.text.strip(), self.comment_input.text.strip(), update_timestamp)
+    
+        alert_view = CustomAlert(save_callback, self.create_button)  # Pass create_button method
+        alert_view.center = (self.width * 0.5, self.height * 0.5)
+        self.add_subview(alert_view)
+
+    def perform_save(self, identifier, comment, update_timestamp):
+        comment_with_timestamp = f"{datetime.now().strftime(DATESTR)}: {comment}" if update_timestamp else f"{self.notes[identifier][self.updating_comment_index].split(': ', 1)[0]}: {comment}"
+
+        if self.updating_comment_index is not None:
+            # Update the existing comment
             self.notes[identifier][self.updating_comment_index] = comment_with_timestamp
             self.updating_comment_index = None
         else:
+            # Add a new comment
             self.notes.setdefault(identifier, []).append(comment_with_timestamp)
-        
+
         self.comment_input.text = ''
         self.refresh_comments_list(identifier)
         self.filter_notes(None)
