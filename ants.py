@@ -7,9 +7,8 @@ FILENAME = 'ants.json'
 DATESTR = '%m-%d-%Y %H:%M:%S'
 
 class CustomAlert(ui.View):
-    def __init__(self, save_callback, create_button_method):
+    def __init__(self, save_callback):
         self.save_callback = save_callback
-        self.create_button = create_button_method  # Reference to create_button method
         self.background_color = 'white'
         self.border_color = 'black'
         self.border_width = 1
@@ -20,10 +19,10 @@ class CustomAlert(ui.View):
         title_label = ui.Label(frame=(0, 0, 300, 40), text=self.name, alignment=ui.ALIGN_CENTER)
         self.add_subview(title_label)
 
-        update_btn = self.create_button((30, 70, 100, 40), 'Update', 'red', self.update_action)
+        update_btn = NotesApp.create_button((30, 70, 100, 40), 'Update', 'red', self.update_action)
         self.add_subview(update_btn)
 
-        keep_btn = self.create_button((170, 70, 100, 40), 'Keep', 'blue', self.keep_action)
+        keep_btn = NotesApp.create_button((170, 70, 100, 40), 'Keep', 'blue', self.keep_action)
         self.add_subview(keep_btn)
 
     def update_action(self, sender):
@@ -98,7 +97,8 @@ class NotesApp(ui.View):
         self.notes_list.delegate = self
         self.add_subview(self.notes_list)
 
-    def create_button(self, frame, title, bg_color, action):
+    @staticmethod
+    def create_button(frame, title, bg_color, action):
         btn = ui.Button(frame=frame, type='custom')
         btn.title = title
         btn.background_color = bg_color
@@ -206,7 +206,7 @@ class NotesApp(ui.View):
         def save_callback(update_timestamp):
             self.perform_save(self.id_input.text.strip(), self.comment_input.text.strip(), update_timestamp)
     
-        alert_view = CustomAlert(save_callback, self.create_button)  # Pass create_button method
+        alert_view = CustomAlert(save_callback)
         alert_view.center = (self.width * 0.5, self.height * 0.5)
         self.add_subview(alert_view)
 
