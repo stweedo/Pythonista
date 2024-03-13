@@ -286,7 +286,7 @@ class NotesApp(ui.View):
             self.filter_notes(None)
             tableview.reload()
 
-    def truncate_text(text, length):
+    def truncate_text(self, text, length):
         return text[:length] + '...' if len(text) > length else text
 
     def tableview_cell_for_row(self, tableview, section, row):
