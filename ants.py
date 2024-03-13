@@ -173,6 +173,7 @@ class NotesApp(ui.View):
         if self.comment_input.text:
             self.comment_input.text = ''
             self.updating_comment_index = None
+            self.notes_list.selected_row = -1
         elif self.id_input.text:
             self.id_input.text = ''
             self.displayed_notes = dict(self.original_notes)
