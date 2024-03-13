@@ -286,7 +286,6 @@ class NotesApp(ui.View):
             self.filter_notes(None)
             tableview.reload()
 
-    @staticmethod
     def truncate_text(text, length):
         return text[:length] + '...' if len(text) > length else text
 
@@ -320,6 +319,8 @@ class NotesApp(ui.View):
         most_recent_date = relevant_comments[0].split(": ", 1)[0].split(" ")[0] if relevant_comments else "No date"
         return comment_count, most_recent_date
     
+    # Displays dynamic label for the list tableview
+    # Invoked automatically by the UI module
     def tableview_title_for_header(self, tableview, section):
         if hasattr(tableview.data_source, 'comments'):
             num_comments = len(tableview.data_source.comments)
