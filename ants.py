@@ -94,12 +94,8 @@ class NotesApp(ui.View):
         self.add_subview(self.comment_input)
 
     def add_dynamic_button(self):
-        self.dynamic_button = self.create_button((70, 225, 100, 40), 'Search', 'blue', self.trigger_search)
+        self.dynamic_button = self.create_button((70, 225, 100, 40), 'Search', 'blue', self.filter_notes)
         self.add_subview(self.dynamic_button)
-
-    def trigger_search(self, sender):
-        self.input_change(sender)
-        self.filter_notes(sender)
 
     def add_clear_button(self):
         self.clear_button = self.create_button((220, 225, 100, 40), 'Clear', 'red', self.clear_input)
@@ -169,6 +165,7 @@ class NotesApp(ui.View):
         # Remove entries with no relevant comments
         self.displayed_notes = {k: v for k, v in self.displayed_notes.items() if v}
         self.refresh_notes_list()
+        self.input_change(sender)
         ui.end_editing()
 
     def refresh_notes_list(self):
