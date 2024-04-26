@@ -36,6 +36,13 @@ class CustomAlert(ui.View):
     def close_alert(self):
         self.superview.remove_subview(self)
 
+class TextViewDelegate:
+    def __init__(self, change_action):
+        self.change_action = change_action
+
+    def textview_did_change(self, textview):
+        self.change_action(textview)
+
 class NotesApp(ui.View):
     def __init__(self):
         self.load_notes()
@@ -47,12 +54,25 @@ class NotesApp(ui.View):
         self.add_identifier_input()
         self.add_comment_label()
         self.add_comment_input()
-        self.add_save_button()
+        self.add_dynamic_button()
         self.add_clear_button()
         self.add_timeframe_control()
         self.add_notes_list()
-        self.id_input.action = self.filter_notes
+        self.id_input.action = self.input_change
+        self.comment_input.delegate = TextViewDelegate(self.input_change)
         self.timeframe_control.action = self.filter_notes
+
+    def input_change(self, sender):
+        # Handles dynamic changes to the search/save button
+        id_text = self.id_input.text.strip()
+        comment_text = self.comment_input.text.strip()
+
+        if id_text and comment_text:
+            self.dynamic_button.title = 'Save'
+            self.dynamic_button.action = self.save_note
+        elif id_text or comment_text:
+            self.dynamic_button.title = 'Search'
+            self.dynamic_button.action = self.filter_notes
 
     def setup_ui_properties(self):
         self.name = 'Advanced Note Taking System'
@@ -73,9 +93,13 @@ class NotesApp(ui.View):
         self.comment_input.font = ('<system>', 17)
         self.add_subview(self.comment_input)
 
-    def add_save_button(self):
-        self.save_button = self.create_button((70, 225, 100, 40), 'Save', 'blue', self.save_note)
-        self.add_subview(self.save_button)
+    def add_dynamic_button(self):
+        self.dynamic_button = self.create_button((70, 225, 100, 40), 'Search', 'blue', self.trigger_search)
+        self.add_subview(self.dynamic_button)
+
+    def trigger_search(self, sender):
+        self.input_change(sender)
+        self.filter_notes(sender)
 
     def add_clear_button(self):
         self.clear_button = self.create_button((220, 225, 100, 40), 'Clear', 'red', self.clear_input)
@@ -145,6 +169,7 @@ class NotesApp(ui.View):
         # Remove entries with no relevant comments
         self.displayed_notes = {k: v for k, v in self.displayed_notes.items() if v}
         self.refresh_notes_list()
+        ui.end_editing()
 
     def refresh_notes_list(self):
         """Refreshes the notes list view with currently displayed notes."""
@@ -176,10 +201,12 @@ class NotesApp(ui.View):
             self.notes_list.selected_row = -1
         elif self.id_input.text:
             self.id_input.text = ''
+            self.input_change
             self.displayed_notes = dict(self.original_notes)
             if hasattr(self.notes_list.data_source, 'comments'):
                 delattr(self.notes_list.data_source, 'comments')
-            self.filter_notes(None)
+        self.filter_notes(None)
+        self.input_change(None)
         ui.end_editing()
 
     def save_note(self, sender):
@@ -200,6 +227,7 @@ class NotesApp(ui.View):
     def show_custom_alert(self):
         def save_callback(update_timestamp):
             self.perform_save(self.id_input.text.strip(), self.comment_input.text.strip(), update_timestamp)
+            self.input_change(None)
     
         alert_view = CustomAlert(save_callback)
         alert_view.center = (self.width * 0.5, self.height * 0.5)
@@ -256,6 +284,7 @@ class NotesApp(ui.View):
           self.notes_list.data_source = self
           self.notes_list.data_source.comments = relevant_comments
           self.notes_list.reload()
+      self.input_change(None)
 
     def tableview_number_of_rows(self, tableview, section):
         if hasattr(tableview.data_source, 'comments'):
