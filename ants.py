@@ -316,11 +316,6 @@ class NotesApp(ui.View):
                 self.notes_list.reload()
         self.input_change(None)
 
-    def tableview_number_of_rows(self, tableview, section):
-        if hasattr(tableview.data_source, 'comments'):
-            return len(tableview.data_source.comments)
-        return len(self.displayed_notes)
-
     def tableview_can_delete(self, tableview, section, row):
         return True
 
