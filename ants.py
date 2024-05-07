@@ -52,6 +52,7 @@ class NotesApp(ui.View):
     def __init__(self):
         self.load_notes()
         self.updating_comment_index = None
+        self.is_comment_search_active = False
         self.create_ui_elements()
 
     def create_ui_elements(self):
@@ -79,7 +80,7 @@ class NotesApp(ui.View):
         self.background_color = 'white'
 
     def add_identifier_input(self):
-        self.id_input = ui.TextField(frame=(10, 10, 370, 32), placeholder='Unique identifier (e.g., Asset number)', continuous=True)
+        self.id_input = ui.TextField(frame=(10, 10, 370, 32), placeholder='Unique identifier (Asset number)', continuous=True)
         self.id_input.font = ('<system-bold>', 20)
         self.id_input.alignment = ui.ALIGN_CENTER
         self.add_subview(self.id_input)
@@ -151,7 +152,7 @@ class NotesApp(ui.View):
         )
 
     def filter_notes(self, sender):
-        current_identifier = self.id_input.text.lower().strip()
+        current_id = self.id_input.text.lower().strip()
         comment_query = self.comment_input.text.lower().strip()
         delta = self.get_timeframe_delta()  # Retrieve the current timeframe delta
 
@@ -169,7 +170,7 @@ class NotesApp(ui.View):
             self.displayed_notes = {
                 key: self.get_sorted_comments(key)
                 for key, value in self.original_notes.items()
-                if not current_identifier or key.lower().startswith(current_identifier)
+                if not current_id or key.lower().startswith(current_id)
             }
 
         if not comment_query:
@@ -178,9 +179,15 @@ class NotesApp(ui.View):
                 for key, comments in self.displayed_notes.items()
             }
 
-        self.displayed_notes = {k: v for k, v in self.displayed_notes.items() if v}  # Filter out empty entries
+        if current_id and current_id in [key.lower() for key in self.original_notes]:
+            self.displayed_notes.setdefault(current_id, [])
+
+        self.displayed_notes = {k: v for k, v in self.displayed_notes.items() if v or k.lower() == current_id}
         self.update_notes_list()
         ui.end_editing()
+
+        # Update the flag based on whether the comment input is the only field with text
+        self.is_comment_search_active = bool(comment_query and not current_id)
 
     def update_notes_list(self):
         if self.displayed_notes and self.id_input.text in self.displayed_notes:
@@ -206,17 +213,22 @@ class NotesApp(ui.View):
 
     def clear_input(self, sender):
         if self.comment_input.text:
+            # Clear the comment input and reset the updating index when a comment search is active
             self.comment_input.text = ''
             self.updating_comment_index = None
             self.notes_list.selected_row = -1
+            if self.is_comment_search_active:
+                # If a comment search was active, clear the ID input as well and end the search
+                self.id_input.text = ''
+                self.is_comment_search_active = False
         elif self.id_input.text:
+            # Only clear the ID input and reset related data if no comment was entered
             self.id_input.text = ''
-            self.input_change
             self.displayed_notes = dict(self.original_notes)
             if hasattr(self.notes_list.data_source, 'comments'):
                 delattr(self.notes_list.data_source, 'comments')
         self.filter_notes(None)
-        self.input_change(None)
+        self.update_dynamic_button('Search', self.filter_notes)
         ui.end_editing()
 
     def save_note(self, sender):
@@ -274,23 +286,30 @@ class NotesApp(ui.View):
         self.save_notes_to_file()
 
     def tableview_did_select(self, tableview, section, row):
-        if hasattr(tableview.data_source, 'comments'):
-            selected_comment = tableview.data_source.comments[row]
-            self.updating_comment_index = self.notes[self.id_input.text].index(selected_comment)
-            self.comment_input.text = selected_comment.split(": ", 1)[1]
-        else:
-            identifier = sorted(self.displayed_notes.keys())[row]
+        if self.is_comment_search_active:
+            identifier = list(self.displayed_notes.keys())[section]
             self.id_input.text = identifier
+            selected_comment = self.displayed_notes[identifier][row]
+            self.comment_input.text = selected_comment.split(": ", 1)[1]
+            self.updating_comment_index = self.notes[identifier].index(selected_comment)
+        else:
+            if hasattr(tableview.data_source, 'comments'):
+                selected_comment = tableview.data_source.comments[row]
+                self.updating_comment_index = self.notes[self.id_input.text].index(selected_comment)
+                self.comment_input.text = selected_comment.split(": ", 1)[1]
+            else:
+                identifier = sorted(self.displayed_notes.keys())[row]
+                self.id_input.text = identifier
 
-            now = datetime.now()
-            delta = self.get_timeframe_delta()
+                now = datetime.now()
+                delta = self.get_timeframe_delta()
 
-            sorted_comments = self.get_sorted_comments(identifier)
-            relevant_comments = self.get_relevant_comments(sorted_comments, delta)
+                sorted_comments = self.get_sorted_comments(identifier)
+                relevant_comments = self.get_relevant_comments(sorted_comments, delta)
 
-            self.notes_list.data_source = self
-            self.notes_list.data_source.comments = relevant_comments
-            self.notes_list.reload()
+                self.notes_list.data_source = self
+                self.notes_list.data_source.comments = relevant_comments
+                self.notes_list.reload()
         self.input_change(None)
 
     def tableview_number_of_rows(self, tableview, section):
@@ -353,6 +372,48 @@ class NotesApp(ui.View):
         # Default case when neither specific comment search nor ID-based comment display is active
         return 'Identifiers'
 
+    def format_comment(self, comment, query, max_length=100):
+        """Highlights the query in the comment and truncates surrounding text."""
+        query = query.lower()
+        lower_comment = comment.lower()
+        query_start = lower_comment.find(query)
+
+        if query_start == -1:
+            # Return the whole comment if it's shorter than max_length
+            return comment if len(comment) <= max_length else comment[:max_length] + '...'
+
+        query_length = len(query)
+        # Calculate start index to ensure query is centered as much as possible
+        start = max(query_start + query_length // 2 - max_length // 2, 0)
+        end = min(start + max_length, len(comment))
+
+        # Adjust start if it's too close to the end to avoid cutting off query
+        if end - query_start < query_length:
+            start = max(0, query_start + query_length - max_length)
+
+        # Ensure query is not cut off at the beginning
+        start = min(start, query_start)
+        end = min(start + max_length, len(comment))
+
+        formatted_comment = comment[start:end]
+
+        # Add ellipses where text has been cut
+        if start > 0:
+            formatted_comment = '...' + formatted_comment
+        if end < len(comment):
+            formatted_comment += '...'
+
+        # Re-find start index of query in newly formatted comment
+        formatted_lower = formatted_comment.lower()
+        query_start_in_formatted = formatted_lower.find(query)
+
+        # Highlight query with brackets
+        highlighted_comment = (formatted_comment[:query_start_in_formatted] +
+                            "[" + formatted_comment[query_start_in_formatted:query_start_in_formatted + query_length] + "]" +
+                            formatted_comment[query_start_in_formatted + query_length:])
+
+        return highlighted_comment
+
     def tableview_cell_for_row(self, tableview, section, row):
         cell = ui.TableViewCell('subtitle')
         if self.comment_input.text.strip():
@@ -361,7 +422,9 @@ class NotesApp(ui.View):
             comment_data = self.displayed_notes[identifier][row]
             timestamp, comment = self.extract_comment_data(comment_data)
             cell.text_label.text = timestamp
-            cell.detail_text_label.text = self.truncate_text(comment, 60)
+            # Updated call to format_comment to include the query and max_length
+            query = self.comment_input.text.strip()
+            cell.detail_text_label.text = self.format_comment(comment, query, max_length=60)
         elif self.id_input.text.strip() and self.id_input.text.strip() in self.displayed_notes:
             # Display comments for a specific ID match
             identifier = self.id_input.text.strip()
