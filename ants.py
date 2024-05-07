@@ -69,11 +69,15 @@ class NotesApp(ui.View):
         self.timeframe_control.action = self.filter_notes
 
     def input_change(self, sender):
-        id_text = self.id_input.text.strip()
-        comment_text = self.comment_input.text.strip()
-        if id_text or comment_text:
-            action = self.save_note if id_text and comment_text else self.filter_notes
-            self.update_dynamic_button('Save' if id_text and comment_text else 'Search', action)
+        if sender == self.id_input:
+                # If Enter key is pressed and the ID input is not empty, filter notes by ID
+                self.filter_notes(None)
+        elif sender == self.comment_input:
+            id_text = self.id_input.text.strip()
+            comment_text = self.comment_input.text.strip()
+            if id_text or comment_text:
+                action = self.save_note if id_text and comment_text else self.filter_notes
+                self.update_dynamic_button('Save' if id_text and comment_text else 'Search', action)
 
     def setup_ui_properties(self):
         self.name = 'Advanced Note Taking System'
@@ -372,8 +376,9 @@ class NotesApp(ui.View):
         # Default case when neither specific comment search nor ID-based comment display is active
         return 'Identifiers'
 
-    def format_comment(self, comment, query, max_length=100):
+    def format_comment(self, comment, query):
         """Highlights the query in the comment and truncates surrounding text."""
+        max_length = 100
         query = query.lower()
         lower_comment = comment.lower()
         query_start = lower_comment.find(query)
@@ -416,22 +421,21 @@ class NotesApp(ui.View):
 
     def tableview_cell_for_row(self, tableview, section, row):
         cell = ui.TableViewCell('subtitle')
-        if self.comment_input.text.strip():
+        if self.is_comment_search_active:
             # Handle comment search
             identifier = list(self.displayed_notes.keys())[section]
             comment_data = self.displayed_notes[identifier][row]
             timestamp, comment = self.extract_comment_data(comment_data)
             cell.text_label.text = timestamp
-            # Updated call to format_comment to include the query and max_length
             query = self.comment_input.text.strip()
-            cell.detail_text_label.text = self.format_comment(comment, query, max_length=60)
+            cell.detail_text_label.text = self.format_comment(comment, query)
         elif self.id_input.text.strip() and self.id_input.text.strip() in self.displayed_notes:
             # Display comments for a specific ID match
             identifier = self.id_input.text.strip()
             comment_data = self.displayed_notes[identifier][row]
             timestamp, comment = self.extract_comment_data(comment_data)
             cell.text_label.text = timestamp
-            cell.detail_text_label.text = self.truncate_text(comment, 60)
+            cell.detail_text_label.text = self.truncate_text(comment, 100)
         else:
             # Normal view displaying all IDs or unmatched single ID input
             identifier = sorted(self.displayed_notes.keys())[row]
