@@ -68,6 +68,16 @@ class NotesApp(ui.View):
         self.comment_input.delegate = TextViewDelegate(self.input_change)
         self.timeframe_control.action = self.filter_notes
 
+    def layout(self):
+        w, h = self.width, self.height
+        if w > h:  # Landscape
+            # Adjust frames for landscape orientation
+            # Only adjust the notes_list to be on the right
+            self.notes_list.frame = (w // 2, 10, w // 2 - 10, h - 20)
+        else:  # Portrait
+            # Restore original frame for portrait orientation
+            self.notes_list.frame = (10, 335, 370, 385)
+
     def input_change(self, sender):
         if sender == self.id_input:
                 # If Enter key is pressed and the ID input is not empty, filter notes by ID
@@ -351,7 +361,7 @@ class NotesApp(ui.View):
         return len(self.displayed_notes)  # Default behavior, showing all IDs
 
     def tableview_title_for_header(self, tableview, section):
-        if self.comment_input.text.strip():
+        if self.is_comment_search_active:
             # When searching by comment, display the actual identifier as section header
             identifier = list(self.displayed_notes.keys())[section]
             return identifier
