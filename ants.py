@@ -115,6 +115,8 @@ class NotesApp(ui.View):
     def update_dynamic_button(self, title, action):
         self.dynamic_button.title = title
         self.dynamic_button.action = action
+        if title == "Search":
+            self.is_comment_search_active = bool(self.comment_query and not self.current_id)
 
     def add_clear_button(self):
         self.clear_button = self.create_button((220, 225, 100, 40), 'Clear', 'red', self.clear_input)
@@ -179,7 +181,6 @@ class NotesApp(ui.View):
         self.apply_filters()
         self.finalize_displayed_notes()
         self.update_notes_list()
-        self.is_comment_search_active = bool(self.comment_query and not self.current_id)
         ui.end_editing()
 
     def apply_filters(self):
