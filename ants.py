@@ -156,42 +156,37 @@ class NotesApp(ui.View):
         )
 
     def filter_notes(self, sender):
-        current_id = self.id_input.text.lower().strip()
-        comment_query = self.comment_input.text.lower().strip()
-        delta = self.get_timeframe_delta()  # Retrieve the current timeframe delta
-
-        if comment_query:
-            now = datetime.now()
-            self.displayed_notes = {}
-            for key, comments in self.original_notes.items():
-                filtered_comments = [
-                    comment for comment in self.get_sorted_comments(key)
-                    if comment_query in comment.lower() and (not delta or now - datetime.strptime(comment.split(": ", 1)[0], DATESTR) <= delta)
-                ]
-                if filtered_comments:
-                    self.displayed_notes[key] = filtered_comments
-        else:
-            self.displayed_notes = {
-                key: self.get_sorted_comments(key)
-                for key, value in self.original_notes.items()
-                if not current_id or key.lower().startswith(current_id)
-            }
-
-        if not comment_query:
-            self.displayed_notes = {
-                key: self.get_relevant_comments(comments, delta)
-                for key, comments in self.displayed_notes.items()
-            }
-
-        if current_id and current_id in [key.lower() for key in self.original_notes]:
-            self.displayed_notes.setdefault(current_id, [])
-
-        self.displayed_notes = {k: v for k, v in self.displayed_notes.items() if v or k.lower() == current_id}
+        self.current_id = self.id_input.text.lower().strip()
+        self.comment_query = self.comment_input.text.lower().strip()
+        self.delta = self.get_timeframe_delta()
+        
+        self.apply_filters()
+        self.finalize_displayed_notes()
         self.update_notes_list()
+        self.is_comment_search_active = bool(self.comment_query and not self.current_id)
         ui.end_editing()
 
-        # Update the flag based on whether the comment input is the only field with text
-        self.is_comment_search_active = bool(comment_query and not current_id)
+    def apply_filters(self):
+        now = datetime.now()
+        self.displayed_notes = {}
+        
+        for key, comments in self.original_notes.items():
+            if self.comment_query:
+                self.displayed_notes[key] = [
+                    comment for comment in self.get_sorted_comments(key)
+                    if self.comment_query in comment.lower() and (not self.delta or now - datetime.strptime(comment.split(": ", 1)[0], DATESTR) <= self.delta)
+                ]
+            elif not self.current_id or key.lower().startswith(self.current_id):
+                self.displayed_notes[key] = self.get_sorted_comments(key)
+
+            if not self.comment_query and (not self.current_id or key.lower().startswith(self.current_id)):
+                self.displayed_notes[key] = self.get_relevant_comments(comments, self.delta)
+
+    def finalize_displayed_notes(self):
+        if self.current_id in [key.lower() for key in self.original_notes]:
+            self.displayed_notes.setdefault(self.current_id, [])
+        
+        self.displayed_notes = {k: v for k, v in self.displayed_notes.items() if v or k.lower() == self.current_id}
 
     def update_notes_list(self):
         if self.displayed_notes and self.id_input.text in self.displayed_notes:
