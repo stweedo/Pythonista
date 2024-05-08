@@ -319,27 +319,24 @@ class NotesApp(ui.View):
     def tableview_can_delete(self, tableview, section, row):
         return True
 
+    def delete_comment(self, identifier, comment_index):
+        del self.notes[identifier][comment_index]
+        if not self.notes[identifier]:  # If no comments left, remove the identifier too
+            del self.notes[identifier]
+
+    def delete_identifier(self, identifier):
+        del self.notes[identifier]
+
     def tableview_delete(self, tableview, section, row):
         if hasattr(tableview.data_source, 'comments'):
             comment_to_delete = tableview.data_source.comments[row]
-            self.notes[self.id_input.text].remove(comment_to_delete)
-            if not self.notes[self.id_input.text]:
-                del self.notes[self.id_input.text]
-                if hasattr(self.notes_list.data_source, 'comments'):
-                    delattr(self.notes_list.data_source, 'comments')
-            else:
-                self.notes_list.data_source.comments = sorted(self.notes[self.id_input.text],
-                                                              key=lambda x: datetime.strptime(x.split(": ", 1)[0], DATESTR),
-                                                              reverse=True)
-            self.save_notes_to_file()
-            self.filter_notes(None)
-            tableview.reload()
+            self.delete_comment(self.id_input.text, self.notes[self.id_input.text].index(comment_to_delete))
         else:
             identifier = sorted(self.displayed_notes.keys())[row]
-            self.delete_entry(identifier=identifier)
-            self.original_notes = dict(self.notes)
-            self.filter_notes(None)
-            tableview.reload()
+            self.delete_identifier(identifier)
+        self.save_notes_to_file()
+        self.filter_notes(None)
+        tableview.reload()
 
     def truncate_text(self, text, length):
         return text[:length] + '...' if len(text) > length else text
