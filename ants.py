@@ -77,6 +77,7 @@ class NotesApp(ui.View):
         else:  # Portrait
             # Restore original frame for portrait orientation
             self.notes_list.frame = (10, 335, 370, 385)
+        self.filter_notes(None)
 
     def input_change(self, sender):
         if sender == self.id_input:
@@ -115,8 +116,6 @@ class NotesApp(ui.View):
     def update_dynamic_button(self, title, action):
         self.dynamic_button.title = title
         self.dynamic_button.action = action
-        if title == "Search":
-            self.is_comment_search_active = bool(self.comment_query and not self.current_id)
 
     def add_clear_button(self):
         self.clear_button = self.create_button((220, 225, 100, 40), 'Clear', 'red', self.clear_input)
@@ -168,36 +167,31 @@ class NotesApp(ui.View):
         if delta is not None:
             filtered_comments = [comment for comment in filtered_comments if now - datetime.strptime(comment.split(": ", 1)[0], DATESTR) <= delta]
 
-        if query:
+        if query and self.is_comment_search_active:
             filtered_comments = [comment for comment in filtered_comments if query in comment.lower()]
 
         return self.sort_comments(filtered_comments)
 
     def filter_notes(self, sender):
-        self.current_id = self.id_input.text.lower().strip()
-        self.comment_query = self.comment_input.text.lower().strip()
-        self.delta = self.get_timeframe_delta()
-        
-        self.apply_filters()
-        self.finalize_displayed_notes()
+        current_id = self.id_input.text.lower().strip()
+        comment_query = self.comment_input.text.lower().strip()
+        delta = self.get_timeframe_delta()
+
+        self.displayed_notes = {}
+        for key, comments in self.original_notes.items():
+            if (not current_id or key.lower().startswith(current_id)):
+                filtered_comments = self.get_relevant_comments(comments, delta, comment_query)
+                if filtered_comments:
+                    self.displayed_notes[key] = filtered_comments
+
+        if current_id:
+            self.displayed_notes.setdefault(current_id, [])
+
         self.update_notes_list()
         ui.end_editing()
 
-    def apply_filters(self):
-        self.displayed_notes = {}
-
-        for key, comments in self.original_notes.items():
-            self.displayed_notes[key] = self.get_relevant_comments(
-                comments,
-                delta=self.delta,
-                query=self.comment_query if self.comment_query else None
-            )
-
-    def finalize_displayed_notes(self):
-        if self.current_id in [key.lower() for key in self.original_notes]:
-            self.displayed_notes.setdefault(self.current_id, [])
-        
-        self.displayed_notes = {k: v for k, v in self.displayed_notes.items() if v or k.lower() == self.current_id}
+        # Update the flag based on whether the comment input is the only field with text
+        self.is_comment_search_active = bool(comment_query and not current_id)
 
     def update_notes_list(self):
         if self.displayed_notes and self.id_input.text in self.displayed_notes:
@@ -319,7 +313,7 @@ class NotesApp(ui.View):
                 self.notes_list.data_source = self
                 self.notes_list.data_source.comments = relevant_comments
                 self.notes_list.reload()
-        self.input_change(None)
+        self.input_change(self.comment_input)
 
     def tableview_can_delete(self, tableview, section, row):
         return True
