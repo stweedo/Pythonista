@@ -374,40 +374,26 @@ class NotesApp(ui.View):
         query = query.lower()
         lower_comment = comment.lower()
         query_start = lower_comment.find(query)
-
+        
         if query_start == -1:
-            # Return the whole comment if it's shorter than max_length
             return comment if len(comment) <= max_length else comment[:max_length] + '...'
-
-        query_length = len(query)
-        # Calculate start index to ensure query is centered as much as possible
-        start = max(query_start + query_length // 2 - max_length // 2, 0)
-        end = min(start + max_length, len(comment))
-
-        # Adjust start if it's too close to the end to avoid cutting off query
-        if end - query_start < query_length:
-            start = max(0, query_start + query_length - max_length)
-
-        # Ensure query is not cut off at the beginning
+        
+        # Ensure the query is centered in the output
+        start = max(query_start + len(query) // 2 - max_length // 2, 0)
         start = min(start, query_start)
         end = min(start + max_length, len(comment))
 
         formatted_comment = comment[start:end]
-
-        # Add ellipses where text has been cut
         if start > 0:
             formatted_comment = '...' + formatted_comment
         if end < len(comment):
             formatted_comment += '...'
 
-        # Re-find start index of query in newly formatted comment
-        formatted_lower = formatted_comment.lower()
-        query_start_in_formatted = formatted_lower.find(query)
-
-        # Highlight query with brackets
+        # Highlight the query in the formatted comment
+        query_start_in_formatted = formatted_comment.lower().find(query)
         highlighted_comment = (formatted_comment[:query_start_in_formatted] +
-                            "[" + formatted_comment[query_start_in_formatted:query_start_in_formatted + query_length] + "]" +
-                            formatted_comment[query_start_in_formatted + query_length:])
+                            "[" + formatted_comment[query_start_in_formatted:query_start_in_formatted + len(query)] + "]" +
+                            formatted_comment[query_start_in_formatted + len(query):])
 
         return highlighted_comment
 
