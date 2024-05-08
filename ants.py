@@ -212,23 +212,26 @@ class NotesApp(ui.View):
 
     def clear_input(self, sender):
         if self.comment_input.text:
-            # Clear the comment input and reset the updating index when a comment search is active
-            self.comment_input.text = ''
-            self.updating_comment_index = None
-            self.notes_list.selected_row = -1
-            if self.is_comment_search_active:
-                # If a comment search was active, clear the ID input as well and end the search
-                self.id_input.text = ''
-                self.is_comment_search_active = False
+            self.clear_comment_input()
         elif self.id_input.text:
-            # Only clear the ID input and reset related data if no comment was entered
-            self.id_input.text = ''
-            self.displayed_notes = dict(self.original_notes)
-            if hasattr(self.notes_list.data_source, 'comments'):
-                delattr(self.notes_list.data_source, 'comments')
+            self.clear_id_input()
         self.filter_notes(None)
         self.update_dynamic_button('Search', self.filter_notes)
         ui.end_editing()
+
+    def clear_comment_input(self):
+        self.comment_input.text = ''
+        self.updating_comment_index = None
+        self.notes_list.selected_row = -1
+        if self.is_comment_search_active:
+            self.id_input.text = ''
+            self.is_comment_search_active = False
+
+    def clear_id_input(self):
+        self.id_input.text = ''
+        self.displayed_notes = dict(self.original_notes)
+        if hasattr(self.notes_list.data_source, 'comments'):
+            delattr(self.notes_list.data_source, 'comments')
 
     def save_note(self, sender):
         identifier = self.id_input.text.strip()
