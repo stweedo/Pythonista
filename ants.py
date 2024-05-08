@@ -142,18 +142,24 @@ class NotesApp(ui.View):
             delta = timedelta(days=30)
         return delta
 
-    def get_relevant_comments(self, comments, delta):
-        if delta is not None:
-            now = datetime.now()
-            return [comment for comment in comments if now - datetime.strptime(comment.split(": ", 1)[0], DATESTR) <= delta]
-        return comments  # Return all if no delta is set
-
-    def get_sorted_comments(self, identifier):
+    def sort_comments(self, comments):
         return sorted(
-            self.notes[identifier],
+            comments,
             key=lambda x: datetime.strptime(x.split(": ", 1)[0], DATESTR),
             reverse=True
         )
+
+    def get_relevant_comments(self, comments, delta=None, query=None):
+        now = datetime.now()
+        filtered_comments = comments
+
+        if delta is not None:
+            filtered_comments = [comment for comment in filtered_comments if now - datetime.strptime(comment.split(": ", 1)[0], DATESTR) <= delta]
+
+        if query:
+            filtered_comments = [comment for comment in filtered_comments if query in comment.lower()]
+
+        return self.sort_comments(filtered_comments)
 
     def filter_notes(self, sender):
         self.current_id = self.id_input.text.lower().strip()
@@ -167,20 +173,14 @@ class NotesApp(ui.View):
         ui.end_editing()
 
     def apply_filters(self):
-        now = datetime.now()
         self.displayed_notes = {}
-        
-        for key, comments in self.original_notes.items():
-            if self.comment_query:
-                self.displayed_notes[key] = [
-                    comment for comment in self.get_sorted_comments(key)
-                    if self.comment_query in comment.lower() and (not self.delta or now - datetime.strptime(comment.split(": ", 1)[0], DATESTR) <= self.delta)
-                ]
-            elif not self.current_id or key.lower().startswith(self.current_id):
-                self.displayed_notes[key] = self.get_sorted_comments(key)
 
-            if not self.comment_query and (not self.current_id or key.lower().startswith(self.current_id)):
-                self.displayed_notes[key] = self.get_relevant_comments(comments, self.delta)
+        for key, comments in self.original_notes.items():
+            self.displayed_notes[key] = self.get_relevant_comments(
+                comments,
+                delta=self.delta,
+                query=self.comment_query if self.comment_query else None
+            )
 
     def finalize_displayed_notes(self):
         if self.current_id in [key.lower() for key in self.original_notes]:
@@ -272,7 +272,7 @@ class NotesApp(ui.View):
 
     def refresh_comments_list(self, identifier):
         if hasattr(self.notes_list.data_source, 'comments'):
-            sorted_comments = self.get_sorted_comments(identifier)
+            sorted_comments = self.get_relevant_comments(self.notes[identifier])
             self.notes_list.data_source.comments = sorted_comments
             self.notes_list.reload()
 
@@ -302,13 +302,9 @@ class NotesApp(ui.View):
             else:
                 identifier = sorted(self.displayed_notes.keys())[row]
                 self.id_input.text = identifier
-
                 now = datetime.now()
                 delta = self.get_timeframe_delta()
-
-                sorted_comments = self.get_sorted_comments(identifier)
-                relevant_comments = self.get_relevant_comments(sorted_comments, delta)
-
+                relevant_comments = self.displayed_notes[identifier]
                 self.notes_list.data_source = self
                 self.notes_list.data_source.comments = relevant_comments
                 self.notes_list.reload()
