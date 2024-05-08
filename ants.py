@@ -398,22 +398,16 @@ class NotesApp(ui.View):
     def tableview_cell_for_row(self, tableview, section, row):
         cell = ui.TableViewCell('subtitle')
         if self.is_comment_search_active:
-            # Handle comment search
             identifier = list(self.displayed_notes.keys())[section]
-            comment_data = self.displayed_notes[identifier][row]
-            timestamp, comment = self.extract_comment_data(comment_data)
+            timestamp, comment = self.extract_comment_data(self.displayed_notes[identifier][row])
             cell.text_label.text = timestamp
-            query = self.comment_input.text.strip()
-            cell.detail_text_label.text = self.format_comment(comment, query)
-        elif self.id_input.text.strip() and self.id_input.text.strip() in self.displayed_notes:
-            # Display comments for a specific ID match
+            cell.detail_text_label.text = self.format_comment(comment, self.comment_input.text.strip())
+        elif self.id_input.text.strip() in self.displayed_notes:
             identifier = self.id_input.text.strip()
-            comment_data = self.displayed_notes[identifier][row]
-            timestamp, comment = self.extract_comment_data(comment_data)
+            timestamp, comment = self.extract_comment_data(self.displayed_notes[identifier][row])
             cell.text_label.text = timestamp
             cell.detail_text_label.text = self.truncate_text(comment, 100)
         else:
-            # Normal view displaying all IDs or unmatched single ID input
             identifier = sorted(self.displayed_notes.keys())[row]
             comment_count, most_recent_date = self.extract_identifier_data(identifier)
             comment_text = "comment" if comment_count == 1 else "comments"
