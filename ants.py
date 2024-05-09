@@ -346,14 +346,29 @@ class NotesApp(ui.View):
         return 1  # Default single section for normal ID display or specific ID match
 
     def tableview_number_of_rows(self, tableview, section):
-        if self.comment_input.text.strip():
+        # Ensure the data source dictionary is properly initialized
+        if not hasattr(self, 'displayed_notes') or not isinstance(self.displayed_notes, dict):
+            return 0  # No data available to display
+
+        # Determine the number of rows based on whether a search is active
+        if self.is_comment_search_active:
+            # When a comment search is active, sections correspond to identifiers matched by comments
             identifier = list(self.displayed_notes.keys())[section]
-            return len(self.displayed_notes[identifier])
-        elif self.id_input.text.strip() and self.id_input.text.strip() in self.displayed_notes:
-            # If there's an exact match ID, display all its comments
-            identifier = self.id_input.text.strip()
-            return len(self.displayed_notes[identifier])
-        return len(self.displayed_notes)  # Default behavior, showing all IDs
+            return len(self.displayed_notes.get(identifier, []))
+
+        # Check for specific identifier display when no active search (e.g., when a user selects or searches for a specific ID)
+        elif self.id_input.text.strip():
+            identifier = self.id_input.text.strip().lower()
+            if identifier in self.displayed_notes:
+                # When a specific identifier is being displayed, count its comments
+                return len(self.displayed_notes.get(identifier, []))
+
+        # Default case: count all the entries as single section
+        if self.id_input.text.strip():
+            # This ensures that if there's input but no matches, we return 0 rather than all identifiers
+            return 0
+
+        return len(self.displayed_notes)  # Display all identifiers if no specific search or input
 
     def tableview_title_for_header(self, tableview, section):
         if self.is_comment_search_active:
