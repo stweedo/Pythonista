@@ -54,6 +54,7 @@ class NotesApp(ui.View):
         self.updating_comment_index = None
         self.is_comment_search_active = False
         self.create_ui_elements()
+        self.filter_notes(None)
 
     def create_ui_elements(self):
         self.setup_ui_properties()
