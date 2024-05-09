@@ -174,6 +174,10 @@ class NotesApp(ui.View):
     def filter_notes(self, sender):
         current_id = self.id_input.text.lower().strip()
         comment_query = self.comment_input.text.lower().strip()
+
+        # Update the flag based on whether the comment input is the only field with text
+        self.is_comment_search_active = bool(comment_query and not current_id)
+
         delta = self.get_timeframe_delta()
 
         self.displayed_notes = {}
@@ -188,9 +192,6 @@ class NotesApp(ui.View):
 
         self.update_notes_list()
         ui.end_editing()
-
-        # Update the flag based on whether the comment input is the only field with text
-        self.is_comment_search_active = bool(comment_query and not current_id)
 
     def update_notes_list(self):
         if self.displayed_notes and self.id_input.text in self.displayed_notes:
