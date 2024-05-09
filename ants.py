@@ -340,7 +340,7 @@ class NotesApp(ui.View):
         return text[:length] + '...' if len(text) > length else text
 
     def tableview_number_of_sections(self, tableview):
-        if self.comment_input.text.strip():
+        if self.is_comment_search_active and self.comment_input.text.strip():
             return len(self.displayed_notes)  # Each matching ID for a comment search gets a section
         return 1  # Default single section for normal ID display or specific ID match
 
