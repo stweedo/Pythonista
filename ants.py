@@ -77,7 +77,6 @@ class NotesApp(ui.View):
         else:  # Portrait
             # Restore original frame for portrait orientation
             self.notes_list.frame = (10, 335, 370, 385)
-        self.filter_notes(None)
 
     def input_change(self, sender):
         if sender == self.id_input:
