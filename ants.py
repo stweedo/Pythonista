@@ -271,6 +271,7 @@ class NotesApp(ui.View):
 
         self.comment_input.text = ''
         self.refresh_comments_list(identifier)
+        self.save_notes_to_file()
         self.filter_notes(None)
         ui.end_editing()
 
@@ -279,8 +280,6 @@ class NotesApp(ui.View):
             sorted_comments = self.get_relevant_comments(self.notes[identifier])
             self.notes_list.data_source.comments = sorted_comments
             self.notes_list.reload()
-
-        self.save_notes_to_file()
 
     def delete_entry(self, identifier=None, comment_index=None):
         if comment_index is not None:
