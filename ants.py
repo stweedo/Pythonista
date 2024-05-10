@@ -299,46 +299,44 @@ class NotesApp(ui.View):
         return text[:length] + '...' if len(text) > length else text
 
     def tableview_number_of_sections(self, tableview):
-        if self.is_comment_search_active and self.comment_input.text.strip():
-            return len(self.displayed_notes)  # Each matching ID for a comment search gets a section
-        return 1  # Default single section for normal ID display or specific ID match
+        # Ensures at least one section is available to display "No results..." or identifier sections
+        if self.is_comment_search_active:
+            return max(1, len(self.displayed_notes))
+        return 1  # Default to one section for normal ID display or specific ID match
 
     def tableview_number_of_rows(self, tableview, section):
-        # Ensure the data source dictionary is properly initialized
-        if not hasattr(self, 'displayed_notes') or not isinstance(self.displayed_notes, dict):
-            return 0  # No data available to display
+        # Returns the number of rows in a section, depending on the active data source and section index
+        if not isinstance(self.displayed_notes, dict):
+            return 0  # Ensures a valid dictionary source for data rows
 
-        # Determine the number of rows based on whether a search is active
         if self.is_comment_search_active:
-            # When a comment search is active, sections correspond to identifiers matched by comments
-            identifier = list(self.displayed_notes.keys())[section]
-            return len(self.displayed_notes.get(identifier, []))
+            # Handles row count for sections when comment search is active
+            if not self.displayed_notes:
+                return 0  # No rows when there are no search results
+            identifiers = list(self.displayed_notes.keys())
+            return len(self.displayed_notes.get(identifiers[section], [])) if section < len(identifiers) else 0
 
-        # Check for specific identifier display when no active search (e.g., when a user selects or searches for a specific ID)
-        elif self.id_input.text.strip():
-            identifier = self.id_input.text.strip().lower()
-            if identifier in self.displayed_notes:
-                # When a specific identifier is being displayed, count its comments
-                return len(self.displayed_notes.get(identifier, []))
-
-        # Default case: count all the entries as single section
+        # Handles rows for specific identifier displays when no comment search is active
         if self.id_input.text.strip():
-            # This ensures that if there's input but no matches, we return 0 rather than all identifiers
-            return 0
+            identifier = self.id_input.text.strip().lower()
+            return len(self.displayed_notes.get(identifier, [])) if identifier in self.displayed_notes else 0
 
+        # Default case to handle all identifiers if no specific search or input is active
         return len(self.displayed_notes)  # Display all identifiers if no specific search or input
 
     def tableview_title_for_header(self, tableview, section):
+        # Determines what title to display for each section header in the table view
         if self.is_comment_search_active:
-            # When searching by comment, display the actual identifier as section header
-            identifier = list(self.displayed_notes.keys())[section]
-            return identifier
-        elif hasattr(tableview.data_source, 'comments'):
-            # When an ID has been selected and is displaying comments
-            num_comments = len(tableview.data_source.comments)
-            return f'Comments ({num_comments})'
-        # Default case when neither specific comment search nor ID-based comment display is active
-        return 'Identifiers'
+            # Shows "No results..." if there are no relevant search results to display
+            if not any(self.displayed_notes.values()):
+                return "No results..."
+            return list(self.displayed_notes.keys())[section]  # Displays the matched identifier as header
+
+        if hasattr(tableview.data_source, 'comments'):
+            # Displays number of comments if comments are present in the data source
+            return f'Comments ({len(tableview.data_source.comments)})'
+        
+        return 'Identifiers'  # Default header for non-search scenarios
 
     def format_comment(self, comment, query):
         """Highlights the query in the comment and truncates surrounding text."""
