@@ -6,49 +6,17 @@ from datetime import datetime, timedelta
 FILENAME = 'ants.json'
 DATESTR = '%m-%d-%Y %H:%M:%S'
 
-class CustomAlert(ui.View):
-    def __init__(self, save_callback):
-        self.setup_view()
-        self.save_callback = save_callback
-        self.add_labels_and_buttons()
-
-    def setup_view(self):
-        self.background_color = 'white'
-        self.border_color = 'black'
-        self.border_width = 1
-        self.corner_radius = 5
-        self.frame = (0, 0, 300, 120)
-        self.name = 'Update Timestamp?'
-
-    def add_labels_and_buttons(self):
-        title_label = ui.Label(frame=(0, 0, 300, 40), text=self.name, alignment=ui.ALIGN_CENTER)
-        self.add_subview(title_label)
-
-        update_btn = NotesApp.create_button((30, 70, 100, 40), 'Update', 'red', self.update_action)
-        self.add_subview(update_btn)
-
-        keep_btn = NotesApp.create_button((170, 70, 100, 40), 'Keep', 'blue', self.keep_action)
-        self.add_subview(keep_btn)
-
-    def update_action(self, sender):
-        self.save_callback(True)
-        self.close_alert()
-
-    def keep_action(self, sender):
-        self.save_callback(False)
-        self.close_alert()
-
-    def close_alert(self):
-        self.superview.remove_subview(self)
-
-class TextViewDelegate:
-    def __init__(self, change_action):
-        self.change_action = change_action
-
-    def textview_did_change(self, textview):
-        self.change_action(textview)
-
 class NotesApp(ui.View):
+    @staticmethod
+    def create_button(frame, title, bg_color, action):
+        btn = ui.Button(frame=frame, type='custom')
+        btn.title = title
+        btn.background_color = bg_color
+        btn.tint_color = 'white'
+        btn.corner_radius = 10
+        btn.action = action
+        return btn
+
     def __init__(self):
         self.load_notes()
         self.updating_comment_index = None
@@ -78,17 +46,6 @@ class NotesApp(ui.View):
         else:  # Portrait
             # Restore original frame for portrait orientation
             self.notes_list.frame = (10, 335, 370, 385)
-
-    def input_change(self, sender):
-        if sender == self.id_input:
-                # If Enter key is pressed and the ID input is not empty, filter notes by ID
-                self.filter_notes(None)
-        elif sender == self.comment_input:
-            id_text = self.id_input.text.strip()
-            comment_text = self.comment_input.text.strip()
-            if id_text or comment_text:
-                action = self.save_note if id_text and comment_text else self.filter_notes
-                self.update_dynamic_button('Save' if id_text and comment_text else 'Search', action)
 
     def setup_ui_properties(self):
         self.name = 'Advanced Note Taking System'
@@ -131,16 +88,17 @@ class NotesApp(ui.View):
         self.notes_list.data_source = self
         self.notes_list.delegate = self
         self.add_subview(self.notes_list)
-
-    @staticmethod
-    def create_button(frame, title, bg_color, action):
-        btn = ui.Button(frame=frame, type='custom')
-        btn.title = title
-        btn.background_color = bg_color
-        btn.tint_color = 'white'
-        btn.corner_radius = 10
-        btn.action = action
-        return btn
+    
+    def input_change(self, sender):
+        if sender == self.id_input:
+                # If Enter key is pressed and the ID input is not empty, filter notes by ID
+                self.filter_notes(None)
+        elif sender == self.comment_input:
+            id_text = self.id_input.text.strip()
+            comment_text = self.comment_input.text.strip()
+            if id_text or comment_text:
+                action = self.save_note if id_text and comment_text else self.filter_notes
+                self.update_dynamic_button('Save' if id_text and comment_text else 'Search', action)
 
     def get_timeframe_delta(self):
         timeframe = self.timeframe_control.selected_index
@@ -449,6 +407,48 @@ class NotesApp(ui.View):
         comment_count = len(relevant_comments)
         most_recent_date = relevant_comments[0].split(": ", 1)[0].split(" ")[0] if relevant_comments else "No date"
         return comment_count, most_recent_date
+
+class CustomAlert(ui.View):
+    def __init__(self, save_callback):
+        self.setup_view()
+        self.save_callback = save_callback
+        self.add_labels_and_buttons()
+
+    def setup_view(self):
+        self.background_color = 'white'
+        self.border_color = 'black'
+        self.border_width = 1
+        self.corner_radius = 5
+        self.frame = (0, 0, 300, 120)
+        self.name = 'Update Timestamp?'
+
+    def add_labels_and_buttons(self):
+        title_label = ui.Label(frame=(0, 0, 300, 40), text=self.name, alignment=ui.ALIGN_CENTER)
+        self.add_subview(title_label)
+
+        update_btn = NotesApp.create_button((30, 70, 100, 40), 'Update', 'red', self.update_action)
+        self.add_subview(update_btn)
+
+        keep_btn = NotesApp.create_button((170, 70, 100, 40), 'Keep', 'blue', self.keep_action)
+        self.add_subview(keep_btn)
+
+    def update_action(self, sender):
+        self.save_callback(True)
+        self.close_alert()
+
+    def keep_action(self, sender):
+        self.save_callback(False)
+        self.close_alert()
+
+    def close_alert(self):
+        self.superview.remove_subview(self)
+
+class TextViewDelegate:
+    def __init__(self, change_action):
+        self.change_action = change_action
+
+    def textview_did_change(self, textview):
+        self.change_action(textview)
 
 if __name__ == '__main__':
     app = NotesApp()
