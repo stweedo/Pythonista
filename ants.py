@@ -335,7 +335,11 @@ class NotesApp(ui.View):
         if hasattr(tableview.data_source, 'comments'):
             # Displays number of comments if comments are present in the data source
             return f'Comments ({len(tableview.data_source.comments)})'
-        
+
+        # Check if displayed_notes is empty when not in comment search mode to show "No identifiers"
+        if not self.displayed_notes:
+            return 'No identifiers'
+
         return 'Identifiers'  # Default header for non-search scenarios
 
     def format_comment(self, comment, query):
