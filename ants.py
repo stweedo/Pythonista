@@ -338,7 +338,7 @@ class NotesApp(ui.View):
 
         # Check if displayed_notes is empty when not in comment search mode to show "No identifiers"
         if not self.displayed_notes:
-            return 'No identifiers'
+            return 'No identifiers...'
 
         return 'Identifiers'  # Default header for non-search scenarios
 
