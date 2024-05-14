@@ -305,12 +305,8 @@ class NotesApp(ui.View):
         return 1  # Default to one section for normal ID display or specific ID match
 
     def tableview_number_of_rows(self, tableview, section):
-        # Returns the number of rows in a section, depending on the active data source and section index
-        if not isinstance(self.displayed_notes, dict):
-            return 0  # Ensures a valid dictionary source for data rows
-
+        # Handles row count for sections when comment search is active
         if self.is_comment_search_active:
-            # Handles row count for sections when comment search is active
             if not self.displayed_notes:
                 return 0  # No rows when there are no search results
             identifiers = list(self.displayed_notes.keys())
@@ -319,10 +315,13 @@ class NotesApp(ui.View):
         # Handles rows for specific identifier displays when no comment search is active
         if self.id_input.text.strip():
             identifier = self.id_input.text.strip().lower()
-            return len(self.displayed_notes.get(identifier, [])) if identifier in self.displayed_notes else 0
+            for key in self.displayed_notes.keys():
+                if key.lower() == identifier:
+                    return len(self.displayed_notes[key])
+            return 0
 
         # Default case to handle all identifiers if no specific search or input is active
-        return len(self.displayed_notes)  # Display all identifiers if no specific search or input
+        return sum(len(comments) for comments in self.displayed_notes.values())
 
     def tableview_title_for_header(self, tableview, section):
         # Determines what title to display for each section header in the table view
