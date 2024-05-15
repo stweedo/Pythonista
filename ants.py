@@ -141,12 +141,13 @@ class NotesApp(ui.View):
 
         self.displayed_notes = {}
         for key, comments in self.original_notes.items():
-            if (not current_id or key.lower().startswith(current_id)):
+            if not current_id or key.lower().startswith(current_id):
                 filtered_comments = self.get_relevant_comments(comments, delta, comment_query)
                 if filtered_comments:
                     self.displayed_notes[key] = filtered_comments
 
-        if current_id:
+        # Check if the current_id fully matches any existing keys
+        if current_id and current_id in self.original_notes:
             self.displayed_notes.setdefault(current_id, [])
 
         self.update_notes_list()
@@ -321,7 +322,7 @@ class NotesApp(ui.View):
             return 0
 
         # Default case to handle all identifiers if no specific search or input is active
-        return sum(len(comments) for comments in self.displayed_notes.values())
+        return len(self.displayed_notes)  # Return the count of unique identifiers only
 
     def tableview_title_for_header(self, tableview, section):
         # Determines what title to display for each section header in the table view
