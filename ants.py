@@ -306,23 +306,21 @@ class NotesApp(ui.View):
         return 1  # Default to one section for normal ID display or specific ID match
 
     def tableview_number_of_rows(self, tableview, section):
-        # Handles row count for sections when comment search is active
         if self.is_comment_search_active:
             if not self.displayed_notes:
-                return 0  # No rows when there are no search results
+                return 0
             identifiers = list(self.displayed_notes.keys())
             return len(self.displayed_notes.get(identifiers[section], [])) if section < len(identifiers) else 0
 
-        # Handles rows for specific identifier displays when no comment search is active
-        if self.id_input.text.strip():
-            identifier = self.id_input.text.strip().lower()
-            for key in self.displayed_notes.keys():
-                if key.lower() == identifier:
-                    return len(self.displayed_notes[key])
-            return 0
+        current_id = self.id_input.text.strip().lower()
+        if current_id:
+            exact_match_comments = self.displayed_notes.get(current_id)
+            if exact_match_comments:
+                return len(exact_match_comments)
+            matching_ids = [key for key in self.displayed_notes.keys() if key.lower().startswith(current_id)]
+            return len(matching_ids)
 
-        # Default case to handle all identifiers if no specific search or input is active
-        return len(self.displayed_notes)  # Return the count of unique identifiers only
+        return len(self.displayed_notes)
 
     def tableview_title_for_header(self, tableview, section):
         # Determines what title to display for each section header in the table view
@@ -373,25 +371,22 @@ class NotesApp(ui.View):
 
     def tableview_cell_for_row(self, tableview, section, row):
         cell = ui.TableViewCell('subtitle')
-        try:
-            if self.is_comment_search_active:
-                identifier = list(self.displayed_notes.keys())[section]
-                timestamp, comment = self.extract_comment_data(self.displayed_notes[identifier][row])
-                cell.text_label.text = timestamp
-                cell.detail_text_label.text = self.format_comment(comment, self.comment_input.text.strip())
-            elif self.id_input.text.strip() in self.displayed_notes:
-                identifier = self.id_input.text.strip()
-                timestamp, comment = self.extract_comment_data(self.displayed_notes[identifier][row])
-                cell.text_label.text = timestamp
-                cell.detail_text_label.text = self.truncate_text(comment, 100)
-            else:
-                identifier = sorted(self.displayed_notes.keys())[row]
-                comment_count, most_recent_date = self.extract_identifier_data(identifier)
-                comment_text = "comment" if comment_count == 1 else "comments"
-                cell.text_label.text = identifier
-                cell.detail_text_label.text = f"{comment_count} {comment_text} | {most_recent_date}"
-        except IndexError:
-            return None  # Simply return None or an empty cell if there is an index error
+        if self.is_comment_search_active:
+            identifier = list(self.displayed_notes.keys())[section]
+            timestamp, comment = self.extract_comment_data(self.displayed_notes[identifier][row])
+            cell.text_label.text = timestamp
+            cell.detail_text_label.text = self.format_comment(comment, self.comment_input.text.strip())
+        elif self.id_input.text.strip() in self.displayed_notes:
+            identifier = self.id_input.text.strip()
+            timestamp, comment = self.extract_comment_data(self.displayed_notes[identifier][row])
+            cell.text_label.text = timestamp
+            cell.detail_text_label.text = self.truncate_text(comment, 100)
+        else:
+            identifier = sorted(self.displayed_notes.keys())[row]
+            comment_count, most_recent_date = self.extract_identifier_data(identifier)
+            comment_text = "comment" if comment_count == 1 else "comments"
+            cell.text_label.text = identifier
+            cell.detail_text_label.text = f"{comment_count} {comment_text} | {most_recent_date}"
         return cell
 
     def extract_comment_data(self, comment_data):
