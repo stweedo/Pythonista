@@ -45,6 +45,7 @@ class NotesApp(ui.View):
         w, h = self.width, self.height
         if w > h:  # Landscape
             self.notes_list.frame = (w // 2, 10, w // 2 - 10, h - 20)
+            ui.end_editing()
         else:  # Portrait
             self.notes_list.frame = (10, 335, 370, 385)
 
