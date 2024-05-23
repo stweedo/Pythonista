@@ -371,22 +371,25 @@ class NotesApp(ui.View):
 
     def tableview_cell_for_row(self, tableview, section, row):
         cell = ui.TableViewCell('subtitle')
-        if self.is_comment_search_active:
-            identifier = list(self.displayed_notes.keys())[section]
-            timestamp, comment = self.extract_comment_data(self.displayed_notes[identifier][row])
-            cell.text_label.text = timestamp
-            cell.detail_text_label.text = self.format_comment(comment, self.comment_input.text.strip())
-        elif self.id_input.text.strip() in self.displayed_notes:
-            identifier = self.id_input.text.strip()
-            timestamp, comment = self.extract_comment_data(self.displayed_notes[identifier][row])
-            cell.text_label.text = timestamp
-            cell.detail_text_label.text = self.truncate_text(comment, 100)
-        else:
-            identifier = sorted(self.displayed_notes.keys())[row]
-            comment_count, most_recent_date = self.extract_identifier_data(identifier)
-            comment_text = "comment" if comment_count == 1 else "comments"
-            cell.text_label.text = identifier
-            cell.detail_text_label.text = f"{comment_count} {comment_text} | {most_recent_date}"
+        try:
+            if self.is_comment_search_active:
+                identifier = list(self.displayed_notes.keys())[section]
+                timestamp, comment = self.extract_comment_data(self.displayed_notes[identifier][row])
+                cell.text_label.text = timestamp
+                cell.detail_text_label.text = self.format_comment(comment, self.comment_input.text.strip())
+            elif self.id_input.text.strip() in self.displayed_notes:
+                identifier = self.id_input.text.strip()
+                timestamp, comment = self.extract_comment_data(self.displayed_notes[identifier][row])
+                cell.text_label.text = timestamp
+                cell.detail_text_label.text = self.truncate_text(comment, 100)
+            else:
+                identifier = sorted(self.displayed_notes.keys())[row]
+                comment_count, most_recent_date = self.extract_identifier_data(identifier)
+                comment_text = "comment" if comment_count == 1 else "comments"
+                cell.text_label.text = identifier
+                cell.detail_text_label.text = f"{comment_count} {comment_text} | {most_recent_date}"
+        except IndexError:
+            return None
         return cell
 
     def extract_comment_data(self, comment_data):
