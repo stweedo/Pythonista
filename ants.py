@@ -1,42 +1,38 @@
 import ui
 import sqlite3
-import os
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 DB_FILENAME = 'ants.db'
 DATESTR = '%m-%d-%Y %H:%M:%S'
 
 class NotesApp(ui.View):
     @staticmethod
-    def create_button(frame, title, bg_color, action):
-        btn = ui.Button(frame=frame, type='custom')
-        btn.title = title
-        btn.background_color = bg_color
-        btn.tint_color = 'white'
-        btn.corner_radius = 10
+    @lru_cache(maxsize=None)
+    def create_button(title, bg_color, action):
+        btn = ui.Button(title=title, background_color=bg_color, tint_color='white', corner_radius=10)
         btn.action = action
         return btn
 
     def __init__(self):
+        super().__init__()
         self.setup_database()
         self.load_notes()
         self.updating_comment_index = None
         self.is_comment_search_active = False
-        self.clear_state = 0  # 0: initial, 1: comment cleared
+        self.clear_state = 0
         self.create_ui_elements()
         self.filter_notes(None)
 
     def setup_database(self):
         with sqlite3.connect(DB_FILENAME) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
+            conn.execute('''
                 CREATE TABLE IF NOT EXISTS notes (
                     id TEXT,
                     timestamp TEXT,
                     comment TEXT
                 )
             ''')
-            conn.commit()
 
     def create_ui_elements(self):
         self.setup_ui_properties()
@@ -53,20 +49,17 @@ class NotesApp(ui.View):
 
     def layout(self):
         w, h = self.width, self.height
+        self.notes_list.frame = (w // 2, 10, w // 2 - 10, h - 20) if w > h else (10, 335, 370, 385)
         if w > h:
-            self.notes_list.frame = (w // 2, 10, w // 2 - 10, h - 20)
             ui.end_editing()
-        else:
-            self.notes_list.frame = (10, 335, 370, 385)
 
     def setup_ui_properties(self):
         self.name = 'Advanced Note Taking System'
         self.background_color = 'white'
 
     def add_identifier_input(self):
-        self.id_input = ui.TextField(frame=(10, 10, 370, 32), placeholder='Unique identifier (Asset number)', continuous=True)
-        self.id_input.font = ('<system-bold>', 20)
-        self.id_input.alignment = ui.ALIGN_CENTER
+        self.id_input = ui.TextField(frame=(10, 10, 370, 32), placeholder='Unique identifier (Asset number)', 
+                                     font=('<system-bold>', 20), alignment=ui.ALIGN_CENTER, continuous=True)
         self.add_subview(self.id_input)
 
     def add_comment_label(self):
@@ -74,12 +67,12 @@ class NotesApp(ui.View):
         self.add_subview(self.comment_label)
 
     def add_comment_input(self):
-        self.comment_input = ui.TextView(frame=(10, 85, 370, 120), border_width=1, corner_radius=8)
-        self.comment_input.font = ('<system>', 17)
+        self.comment_input = ui.TextView(frame=(10, 85, 370, 120), border_width=1, corner_radius=8, font=('<system>', 17))
         self.add_subview(self.comment_input)
 
     def add_dynamic_button(self):
-        self.dynamic_button = self.create_button((70, 225, 100, 40), 'Search', 'blue', self.filter_notes)
+        self.dynamic_button = self.create_button('Search', 'blue', self.filter_notes)
+        self.dynamic_button.frame = (70, 225, 100, 40)
         self.add_subview(self.dynamic_button)
 
     def update_dynamic_button(self, title, action):
@@ -87,7 +80,8 @@ class NotesApp(ui.View):
         self.dynamic_button.action = action
 
     def add_clear_button(self):
-        self.clear_button = self.create_button((220, 225, 100, 40), 'Clear', 'red', self.clear_input)
+        self.clear_button = self.create_button('Clear', 'red', self.clear_input)
+        self.clear_button.frame = (220, 225, 100, 40)
         self.add_subview(self.clear_button)
 
     def add_timeframe_control(self):
@@ -107,60 +101,57 @@ class NotesApp(ui.View):
         elif sender == self.comment_input:
             id_text = self.id_input.text.strip()
             comment_text = self.comment_input.text.strip()
-            if id_text or comment_text:
-                action = self.save_note if id_text and comment_text else self.filter_notes
-                self.update_dynamic_button('Save' if id_text and comment_text else 'Search', action)
+            action = self.save_note if id_text and comment_text else self.filter_notes
+            self.update_dynamic_button('Save' if id_text and comment_text else 'Search', action)
 
-    def get_timeframe_delta(self):
-        timeframe = self.timeframe_control.selected_index
-        delta = None
-        if timeframe == 1:
-            delta = timedelta(days=1)
-        elif timeframe == 2:
-            delta = timedelta(weeks=1)
-        elif timeframe == 3:
-            delta = timedelta(days=30)
-        return delta
+    @staticmethod
+    @lru_cache(maxsize=4)
+    def get_timeframe_delta(timeframe):
+        if timeframe == 1:  # Day
+            return timedelta(days=1)
+        elif timeframe == 2:  # Week
+            return timedelta(days=7)
+        elif timeframe == 3:  # Month
+            return timedelta(days=30)
+        return None
 
-    def sort_comments(self, comments):
-        return sorted(
-            comments,
-            key=lambda x: datetime.strptime(x.split(": ", 1)[0], DATESTR),
-            reverse=True
-        )
-
-    def get_relevant_comments(self, comments, delta=None, query=None):
-        now = datetime.now()
-        filtered_comments = comments
-
-        if delta is not None:
-            filtered_comments = [comment for comment in filtered_comments if now - datetime.strptime(comment.split(": ", 1)[0], DATESTR) <= delta]
-
-        if query and self.is_comment_search_active:
-            filtered_comments = [comment for comment in filtered_comments if query in comment.lower()]
-
-        return self.sort_comments(filtered_comments)
+    @staticmethod
+    def sort_comments(comments):
+        return sorted(comments, key=lambda x: datetime.strptime(x.split(": ", 1)[0], DATESTR), reverse=True)
 
     def filter_notes(self, sender):
         current_id = self.id_input.text.lower().strip()
-        comment_query = self.comment_input.text.lower().strip()
+        comment_query = self.comment_input.text.strip()
 
         self.is_comment_search_active = bool(comment_query and not current_id)
 
-        delta = self.get_timeframe_delta()
+        delta = self.get_timeframe_delta(self.timeframe_control.selected_index)
 
         self.displayed_notes = {}
         for key, comments in self.original_notes.items():
             if not current_id or key.lower().startswith(current_id):
-                filtered_comments = self.get_relevant_comments(comments, delta, comment_query)
-                if filtered_comments:
-                    self.displayed_notes[key] = filtered_comments
+                relevant_comments = self.get_relevant_comments(comments, delta, comment_query)
+                if relevant_comments:
+                    self.displayed_notes[key] = relevant_comments
 
-        if current_id and current_id in self.original_notes:
-            self.displayed_notes.setdefault(current_id, [])
+        if current_id and current_id in self.original_notes and not self.displayed_notes.get(current_id):
+            self.displayed_notes[current_id] = []
 
         self.update_notes_list()
         ui.end_editing()
+
+    def get_relevant_comments(self, comments, delta=None, query=None):
+        now = datetime.now().date()
+        filtered_comments = comments
+
+        if delta is not None:
+            filtered_comments = [comment for comment in filtered_comments 
+                                 if now - datetime.strptime(comment.split(": ", 1)[0], DATESTR).date() < delta]
+
+        if query and self.is_comment_search_active:
+            filtered_comments = [comment for comment in filtered_comments if query.lower() in comment.lower()]
+
+        return self.sort_comments(filtered_comments)
 
     def update_notes_list(self):
         if self.displayed_notes and self.id_input.text in self.displayed_notes:
@@ -170,13 +161,11 @@ class NotesApp(ui.View):
         self.notes_list.reload()
 
     def load_notes(self):
-        self.notes = {}
         with sqlite3.connect(DB_FILENAME) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id, timestamp, comment FROM notes")
-            rows = cursor.fetchall()
-            for row in rows:
-                id, timestamp, comment = row
+            self.notes = {}
+            for id, timestamp, comment in cursor.fetchall():
                 self.notes.setdefault(id, []).append(f"{timestamp}: {comment}")
         self.original_notes = dict(self.notes)
         self.displayed_notes = dict(self.notes)
@@ -185,29 +174,25 @@ class NotesApp(ui.View):
         with sqlite3.connect(DB_FILENAME) as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM notes WHERE id = ?", (identifier,))
-            for comment in comments:
-                timestamp, comment_text = comment.split(": ", 1)
-                cursor.execute("INSERT INTO notes (id, timestamp, comment) VALUES (?, ?, ?)", (identifier, timestamp, comment_text))
-            conn.commit()
+            cursor.executemany("INSERT INTO notes (id, timestamp, comment) VALUES (?, ?, ?)", 
+                               [(identifier, *comment.split(": ", 1)) for comment in comments])
         self.load_notes()
         self.notes_list.reload()
 
     def clear_comment_input(self):
-	    # Clear the comment input field
-	    self.comment_input.text = ''
-	    self.updating_comment_index = None
-	    self.notes_list.selected_row = -1
-	    self.is_comment_search_active = False
+        self.comment_input.text = ''
+        self.updating_comment_index = None
+        self.notes_list.selected_row = -1
+        self.is_comment_search_active = False
 
     def clear_input(self, sender):
-	    # Clear input fields based on their current state
-	    if self.comment_input.text:
-	        self.clear_comment_input()
-	    elif self.id_input.text:
-	        self.clear_id_input()
-	    self.filter_notes(None)
-	    self.update_dynamic_button('Search', self.filter_notes)
-	    ui.end_editing()
+        if self.comment_input.text:
+            self.clear_comment_input()
+        elif self.id_input.text:
+            self.clear_id_input()
+        self.filter_notes(None)
+        self.update_dynamic_button('Search', self.filter_notes)
+        ui.end_editing()
 
     def clear_id_input(self):
         self.id_input.text = ''
@@ -284,7 +269,7 @@ class NotesApp(ui.View):
                 identifier = sorted(self.displayed_notes.keys())[row]
                 self.id_input.text = identifier
                 now = datetime.now()
-                delta = self.get_timeframe_delta()
+                delta = self.get_timeframe_delta(self.timeframe_control.selected_index)
                 relevant_comments = self.displayed_notes[identifier]
                 self.notes_list.data_source = self
                 self.notes_list.data_source.comments = relevant_comments
@@ -313,9 +298,6 @@ class NotesApp(ui.View):
         self.filter_notes(None)
         tableview.reload()
 
-    def truncate_text(self, text, length):
-        return text[:length] + '...' if len(text) > length else text
-
     def tableview_number_of_sections(self, tableview):
         if self.is_comment_search_active:
             return max(1, len(self.displayed_notes))
@@ -333,7 +315,7 @@ class NotesApp(ui.View):
         if current_id_input:
             exact_match_comments = self.displayed_notes.get(current_id_input)
             if exact_match_comments is not None:
-                return len(exact_match_comments) - 1 if not exact_match_comments else len(exact_match_comments)
+                return len(exact_match_comments)
             matching_ids = [key for key in self.displayed_notes.keys() if key.lower().startswith(current_id_input)]
             return len(matching_ids)
 
@@ -391,7 +373,7 @@ class NotesApp(ui.View):
                 identifier = self.id_input.text.strip()
                 timestamp, comment = self.extract_comment_data(self.displayed_notes[identifier][row])
                 cell.text_label.text = timestamp
-                cell.detail_text_label.text = self.truncate_text(comment, 100)
+                cell.detail_text_label.text = comment
             else:
                 identifier = sorted(self.displayed_notes.keys())[row]
                 comment_count, most_recent_date = self.extract_identifier_data(identifier)
@@ -407,21 +389,22 @@ class NotesApp(ui.View):
         return timestamp, comment
 
     def extract_identifier_data(self, identifier):
-	    if self.comment_input.text.strip():
-	        relevant_comments = [comment for comment in self.displayed_notes[identifier] if self.comment_input.text.lower().strip() in comment.lower()]
-	    else:
-	        relevant_comments = self.displayed_notes.get(identifier, [])
-	
-	    comment_count = len(relevant_comments)
-	    if relevant_comments:
-	        most_recent_datetime = relevant_comments[0].split(": ", 1)[0]
-	        most_recent_date = most_recent_datetime.split(" ")[0]  # Extract only the date part
-	    else:
-	        most_recent_date = "No date"
-	    return comment_count, most_recent_date
+        if self.comment_input.text.strip():
+            relevant_comments = [comment for comment in self.displayed_notes[identifier] if self.comment_input.text.lower().strip() in comment.lower()]
+        else:
+            relevant_comments = self.displayed_notes.get(identifier, [])
+
+        comment_count = len(relevant_comments)
+        if relevant_comments:
+            most_recent_datetime = relevant_comments[0].split(": ", 1)[0]
+            most_recent_date = most_recent_datetime.split(" ")[0]  # Extract only the date part
+        else:
+            most_recent_date = "No date"
+        return comment_count, most_recent_date
 
 class CustomAlert(ui.View):
     def __init__(self, save_callback):
+        super().__init__()
         self.setup_view()
         self.save_callback = save_callback
         self.add_labels_and_buttons()
@@ -438,10 +421,12 @@ class CustomAlert(ui.View):
         title_label = ui.Label(frame=(0, 0, 300, 40), text=self.name, alignment=ui.ALIGN_CENTER)
         self.add_subview(title_label)
 
-        update_btn = NotesApp.create_button((30, 70, 100, 40), 'Update', 'red', self.update_action)
+        update_btn = NotesApp.create_button('Update', 'red', self.update_action)
+        update_btn.frame = (30, 70, 100, 40)
         self.add_subview(update_btn)
 
-        keep_btn = NotesApp.create_button((170, 70, 100, 40), 'Keep', 'blue', self.keep_action)
+        keep_btn = NotesApp.create_button('Keep', 'blue', self.keep_action)
+        keep_btn.frame = (170, 70, 100, 40)
         self.add_subview(keep_btn)
 
     def update_action(self, sender):
