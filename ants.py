@@ -425,30 +425,65 @@ class NotesApp(ui.View):
         return 'Identifiers'  # Default header for non-search scenarios
 
     def format_comment(self, comment, query):
-        max_length = 100
+        """
+        Format a comment by centering the query match and adding proper truncation.
+        
+        Args:
+            comment (str): The full comment text
+            query (str): The search query
+            
+        Returns:
+            str: Formatted comment with query highlighted and proper truncation
+        """
+        # If no query or query not found, return unmodified or truncated comment
+        if not query:
+            return comment[:100] + "..." if len(comment) > 100 else comment
+            
         query = query.lower()
-        lower_comment = comment.lower()
-        query_start = lower_comment.find(query)
-
-        if query_start == -1:
-            return comment if len(comment) <= max_length else comment[:max_length] + '...'
-
-        start = max(query_start + len(query) // 2 - max_length // 2, 0)
-        start = min(start, query_start)
-        end = min(start + max_length, len(comment))
-
-        formatted_comment = comment[start:end]
-        if start > 0:
-            formatted_comment = '...' + formatted_comment
+        comment_lower = comment.lower()
+        query_pos = comment_lower.find(query)
+        
+        if query_pos == -1:
+            return comment[:100] + "..." if len(comment) > 100 else comment
+            
+        # Calculate the start position to center the query
+        window_size = 100 - 6  # Reserve space for both ellipsis (3 chars each)
+        half_window = window_size // 2
+        
+        # Calculate ideal center position
+        query_center = query_pos + len(query) // 2
+        start = max(0, query_center - half_window)
+        end = min(len(comment), start + window_size)
+        
+        # Adjust start if we have room at the end
         if end < len(comment):
-            formatted_comment += '...'
-
-        query_start_in_formatted = formatted_comment.lower().find(query)
-        highlighted_comment = (formatted_comment[:query_start_in_formatted] +
-                            "[" + formatted_comment[query_start_in_formatted:query_start_in_formatted + len(query)] + "]" +
-                            formatted_comment[query_start_in_formatted + len(query):])
-
-        return highlighted_comment
+            start = max(0, end - window_size)
+        # Adjust end if we have room at the start
+        elif start == 0:
+            end = min(len(comment), window_size)
+        
+        # Build result with ellipsis
+        result = ""
+        if start > 0:
+            result += "..."
+            
+        result += comment[start:end]
+        
+        if end < len(comment):
+            result += "..."
+            
+        # Add highlighting - make sure to find the query position in the truncated text
+        query_pos_in_truncated = result.lower().find(query)
+        if query_pos_in_truncated != -1:
+            result = (
+                result[:query_pos_in_truncated] +
+                '[' +
+                result[query_pos_in_truncated:query_pos_in_truncated + len(query)] +
+                ']' +
+                result[query_pos_in_truncated + len(query):]
+            )
+            
+        return result
 
     def tableview_cell_for_row(self, tableview, section, row):
         cell = ui.TableViewCell('subtitle')
