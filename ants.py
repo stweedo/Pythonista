@@ -2,20 +2,78 @@ import ui
 import sqlite3
 from datetime import datetime, timedelta
 from functools import lru_cache
+import re
 
 DB_FILENAME = 'ants.db'
 DATESTR = '%m-%d-%Y %H:%M:%S'
 
-class NotesApp(ui.View):
-    @staticmethod
-    @lru_cache(maxsize=None)
-    def create_button(title, bg_color, action):
-        btn = ui.Button(title=title, background_color=bg_color, tint_color='white', corner_radius=10)
-        btn.action = action
-        return btn
+class SearchIndex:
+    def __init__(self):
+        self.index = {}
+        self.id_index = {}
+    
+    def add_entry(self, identifier, timestamp, comment):
+        # Add to comment index
+        words = set(re.findall(r'\w+', comment.lower()))
+        for word in words:
+            if word not in self.index:
+                self.index[word] = set()
+            self.index[word].add((identifier, timestamp, comment))
+        
+        # Add to ID index
+        id_parts = set(identifier.lower().split())
+        for part in id_parts:
+            if part not in self.id_index:
+                self.id_index[part] = set()
+            self.id_index[part].add(identifier)
 
+    def search(self, query, id_filter=None):
+        if not query:
+            return set()
+        
+        words = set(re.findall(r'\w+', query.lower()))
+        if not words:
+            return set()
+        
+        # Sort words by frequency in index to optimize intersection
+        sorted_words = sorted(words, key=lambda w: len(self.index.get(w, set())))
+        results = self.index.get(sorted_words[0], set())
+        
+        # Early exit if no results
+        if not results:
+            return set()
+            
+        for word in sorted_words[1:]:
+            word_results = self.index.get(word, set())
+            results &= word_results
+            if not results:  # Early exit if intersection is empty
+                break
+                
+        if id_filter:
+            results = {r for r in results if r[0] == id_filter}
+                
+        return results
+    
+    def search_ids(self, query):
+        if not query:
+            return set()
+        
+        words = set(re.findall(r'\w+', query.lower()))
+        if not words:
+            return set()
+        
+        results = self.id_index.get(next(iter(words)), set())
+        
+        for word in words:
+            word_results = self.id_index.get(word, set())
+            results &= word_results
+            
+        return results
+
+class NotesApp(ui.View):
     def __init__(self):
         super().__init__()
+        self.search_index = SearchIndex()
         self.setup_database()
         self.load_notes()
         self.updating_comment_index = None
@@ -23,6 +81,68 @@ class NotesApp(ui.View):
         self.clear_state = 0
         self.create_ui_elements()
         self.filter_notes(None)
+
+    def load_notes(self):
+        with sqlite3.connect(DB_FILENAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, timestamp, comment FROM notes")
+            self.notes = {}
+            for id, timestamp, comment in cursor.fetchall():
+                self.notes.setdefault(id, []).append(f"{timestamp}: {comment}")
+                self.search_index.add_entry(id, timestamp, comment)
+        self.original_notes = dict(self.notes)
+        self.displayed_notes = dict(self.notes)
+
+    def filter_notes(self, sender):
+        current_id = self.id_input.text.strip()
+        comment_query = self.comment_input.text.strip()
+        
+        self.is_comment_search_active = bool(comment_query)
+        delta = self.get_timeframe_delta(self.timeframe_control.selected_index)
+        
+        self.displayed_notes = {}
+        
+        if comment_query:
+            # Search by comment content
+            results = self.search_index.search(comment_query, current_id if current_id else None)
+            for identifier, timestamp, comment in results:
+                if self._is_within_timeframe(timestamp, delta):
+                    self.displayed_notes.setdefault(identifier, []).append(f"{timestamp}: {comment}")
+        elif current_id:
+            # Search by ID
+            matching_ids = self.search_index.search_ids(current_id)
+            for id in matching_ids:
+                relevant_comments = self._filter_comments_by_timeframe(self.notes[id], delta)
+                if relevant_comments:
+                    self.displayed_notes[id] = relevant_comments
+        else:
+            # Show all notes within timeframe
+            for id, comments in self.notes.items():
+                relevant_comments = self._filter_comments_by_timeframe(comments, delta)
+                if relevant_comments:
+                    self.displayed_notes[id] = relevant_comments
+        
+        self.update_notes_list()
+        ui.end_editing()
+
+    def _is_within_timeframe(self, timestamp_str, delta):
+        if not delta:
+            return True
+        timestamp = datetime.strptime(timestamp_str, DATESTR)
+        return datetime.now() - timestamp < delta
+
+    def _filter_comments_by_timeframe(self, comments, delta):
+        if not delta:
+            return comments
+        return [comment for comment in comments 
+                if datetime.now() - datetime.strptime(comment.split(": ", 1)[0], DATESTR) < delta]
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def create_button(title, bg_color, action):
+        btn = ui.Button(title=title, background_color=bg_color, tint_color='white', corner_radius=10)
+        btn.action = action
+        return btn
 
     def setup_database(self):
         with sqlite3.connect(DB_FILENAME) as conn:
@@ -119,27 +239,6 @@ class NotesApp(ui.View):
     def sort_comments(comments):
         return sorted(comments, key=lambda x: datetime.strptime(x.split(": ", 1)[0], DATESTR), reverse=True)
 
-    def filter_notes(self, sender):
-        current_id = self.id_input.text.lower().strip()
-        comment_query = self.comment_input.text.strip()
-
-        self.is_comment_search_active = bool(comment_query and not current_id)
-
-        delta = self.get_timeframe_delta(self.timeframe_control.selected_index)
-
-        self.displayed_notes = {}
-        for key, comments in self.original_notes.items():
-            if not current_id or key.lower().startswith(current_id):
-                relevant_comments = self.get_relevant_comments(comments, delta, comment_query)
-                if relevant_comments:
-                    self.displayed_notes[key] = relevant_comments
-
-        if current_id and current_id in self.original_notes and not self.displayed_notes.get(current_id):
-            self.displayed_notes[current_id] = []
-
-        self.update_notes_list()
-        ui.end_editing()
-
     def get_relevant_comments(self, comments, delta=None, query=None):
         now = datetime.now().date()
         filtered_comments = comments
@@ -159,16 +258,6 @@ class NotesApp(ui.View):
         elif hasattr(self.notes_list.data_source, 'comments'):
             delattr(self.notes_list.data_source, 'comments')
         self.notes_list.reload()
-
-    def load_notes(self):
-        with sqlite3.connect(DB_FILENAME) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, timestamp, comment FROM notes")
-            self.notes = {}
-            for id, timestamp, comment in cursor.fetchall():
-                self.notes.setdefault(id, []).append(f"{timestamp}: {comment}")
-        self.original_notes = dict(self.notes)
-        self.displayed_notes = dict(self.notes)
 
     def save_notes_to_db(self, identifier, comments):
         with sqlite3.connect(DB_FILENAME) as conn:
