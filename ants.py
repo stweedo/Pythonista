@@ -11,7 +11,6 @@ class SearchIndex:
     def __init__(self):
         self.index = {}
         self.id_index = {}
-        self.id_prefix_index = {}  # New index for prefix matching
     
     def add_entry(self, identifier, timestamp, comment):
         # Add to comment index
@@ -27,14 +26,6 @@ class SearchIndex:
             if part not in self.id_index:
                 self.id_index[part] = set()
             self.id_index[part].add(identifier)
-            
-        # Add to prefix index
-        identifier_lower = identifier.lower()
-        for i in range(len(identifier_lower)):
-            prefix = identifier_lower[:i+1]
-            if prefix not in self.id_prefix_index:
-                self.id_prefix_index[prefix] = set()
-            self.id_prefix_index[prefix].add(identifier)
 
     def search(self, query, id_filter=None):
         if not query:
@@ -69,22 +60,17 @@ class SearchIndex:
         
         query = query.lower().strip()
         
-        # Try prefix search first if query looks like a number
-        if query.isdigit():
-            return self.id_prefix_index.get(query, set())
-        
-        # Fall back to regular word-based search
-        words = set(re.findall(r'\w+', query))
-        if not words:
-            return set()
-        
-        results = self.id_index.get(next(iter(words)), set())
-        
-        for word in words:
-            word_results = self.id_index.get(word, set())
-            results &= word_results
+        # Get all identifiers
+        all_ids = set()
+        for id_set in self.id_index.values():
+            all_ids.update(id_set)
             
-        return results
+        # Filter IDs that start with the query
+        matching_ids = {id_str for id_str in all_ids if any(
+            part.startswith(query) for part in id_str.lower().split()
+        )}
+        
+        return matching_ids
         
 class NotesApp(ui.View):
     def __init__(self):
