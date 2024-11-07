@@ -11,6 +11,7 @@ class SearchIndex:
     def __init__(self):
         self.index = {}
         self.id_index = {}
+        self.id_prefix_index = {}  # New index for prefix matching
     
     def add_entry(self, identifier, timestamp, comment):
         # Add to comment index
@@ -26,6 +27,14 @@ class SearchIndex:
             if part not in self.id_index:
                 self.id_index[part] = set()
             self.id_index[part].add(identifier)
+            
+        # Add to prefix index
+        identifier_lower = identifier.lower()
+        for i in range(len(identifier_lower)):
+            prefix = identifier_lower[:i+1]
+            if prefix not in self.id_prefix_index:
+                self.id_prefix_index[prefix] = set()
+            self.id_prefix_index[prefix].add(identifier)
 
     def search(self, query, id_filter=None):
         if not query:
@@ -58,7 +67,14 @@ class SearchIndex:
         if not query:
             return set()
         
-        words = set(re.findall(r'\w+', query.lower()))
+        query = query.lower().strip()
+        
+        # Try prefix search first if query looks like a number
+        if query.isdigit():
+            return self.id_prefix_index.get(query, set())
+        
+        # Fall back to regular word-based search
+        words = set(re.findall(r'\w+', query))
         if not words:
             return set()
         
@@ -69,7 +85,7 @@ class SearchIndex:
             results &= word_results
             
         return results
-
+        
 class NotesApp(ui.View):
     def __init__(self):
         super().__init__()
