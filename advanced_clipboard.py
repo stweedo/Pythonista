@@ -41,12 +41,12 @@ class ClipboardBuffer:
         if self.FILENAME.exists():
             try:
                 with self.FILENAME.open('r', encoding='utf-8') as f: content = f.read(); return json.loads(content) if content else []
-            except (json.JSONDecodeError, IOError) as e: print(f"Error loading: {e}. Starting empty."); return []
+            except (json.JSONDecodeError, IOError) as e: return []
         return []
     def save(self):
         try:
             with self.FILENAME.open('w', encoding='utf-8') as f: json.dump(self.buffer, f, indent=2)
-        except IOError as e: print(f"Error saving: {e}")
+        except IOError as e: pass
     def add(self, text):
         if not text or text in self.buffer or len(self.buffer) >= self.MAX_SIZE: return False
         self.buffer.append(text); self.save(); return True
@@ -66,7 +66,7 @@ clipboard_buffer = ClipboardBuffer()
 def show_alert(message, style='default'):
     is_error = style == 'error'
     try: console.hud_alert(message, 'error' if is_error else 'success', duration=1.5)
-    except Exception: print(f"ALERT ({'Error' if is_error else 'Info'}): {message}")
+    except Exception: pass
 def import_clipboard():
     text = clipboard.get().strip()
     if not text: show_alert('Clipboard empty or only whitespace', style='error'); return
@@ -89,7 +89,7 @@ def present_clipboard_sheet():
     def table_tapped(ds):
         if ds.selected_row != -1:
             try: item = ds.items[ds.selected_row]; clipboard.set(item); show_alert('Copied to clipboard'); table_view.close()
-            except Exception as e: print(f"Sheet tap/close error: {e}"); show_alert('Error copying or closing', style='error')
+            except Exception as e: show_alert('Error copying or closing', style='error')
     def tableview_cell(tv, section, row):
         cell = ui.TableViewCell('subtitle'); cell.text_label.number_of_lines = 0
         try: item_text = clipboard_buffer[row]; cell.text_label.text = item_text[:150] + ('...' if len(item_text) > 150 else '')
@@ -158,7 +158,6 @@ class ClipboardListView(ui.View):
 
             except Exception as e:
                 # Handle potential errors during item access, copy, or close
-                print(f"Keyboard tap/close error: {e}")
                 show_alert('Error copying or closing', style='error')
 
     def _tableview_cell(self, tv, section, row):
@@ -216,20 +215,16 @@ class ClipboardManagerView(ui.View):
     
     def will_close(self):
         """Called before the view is closed"""
-        print(f"Menu view will close - current width: {self.width}")
+        pass
     
     def did_load(self):
         """Called after the view is loaded"""
-        print(f"Menu view loaded - current width: {self.width}")
         self.layout()
     
     def layout(self):
         """Position buttons in a vertical column, centered horizontally and vertically."""
         if not self._buttons or self.height <= 0 or self.width <= 0: 
             return
-        
-        # Debug output to help diagnose sizing issues
-        print(f"Layout called - self.width: {self.width}, self.height: {self.height}")
         
         # Use keyboard-specific values when in keyboard mode
         button_height = KEYBOARD_MODE_BUTTON_HEIGHT if self.is_keyboard_mode else BUTTON_HEIGHT
@@ -271,15 +266,11 @@ class ClipboardManagerView(ui.View):
 # --- Main Execution ---
 if __name__ == "__main__":
     console.clear()
-    print("Starting Clipboard Buffer Utility...")
-    print(f"Buffer loaded with {len(clipboard_buffer)} items.")
-    print(f"Using buffer file: {ClipboardBuffer.FILENAME.resolve()}")
     is_keyboard = False
     try: import appex; is_keyboard = appex.is_running_extension()
     except ImportError: pass
-    except Exception as e: print(f"Warning: Could not reliably detect execution context: {e}")
+    except Exception as e: pass
     if is_keyboard:
-        print("Running as Keyboard Extension")
         keyboard_root_view = ui.View(background_color=COLOR_BG_MAIN)
         keyboard_root_view.flex = 'WH'
         view_state = { 'main_menu': None, 'clipboard_list': None, 'active_view': None }
@@ -292,13 +283,10 @@ if __name__ == "__main__":
         
         def close_keyboard():
             """Close the keyboard entirely."""
-            print("Closing keyboard...")
             keyboard_root_view.close()
         
         def show_main_menu(sender=None):
             """Show the main menu view, creating it if necessary."""
-            print(f"Switching to Main Menu view - root width: {keyboard_root_view.width}")
-            
             # Remove the current active view if there is one
             remove_active_view()
             
@@ -321,8 +309,6 @@ if __name__ == "__main__":
         
         def show_clipboard_list(sender=None):
             """Show the clipboard list view."""
-            print(f"Switching to Clipboard List view - root width: {keyboard_root_view.width}")
-            
             # Remove the current active view
             remove_active_view()
             
@@ -343,6 +329,5 @@ if __name__ == "__main__":
         # Present the keyboard view
         keyboard_root_view.present('keyboard')
     else:
-        print("Running as Main App / Sheet")
         main_view_app = ClipboardManagerView(view_clipboard_action=present_clipboard_sheet)
         main_view_app.present('sheet', hide_title_bar=True)
